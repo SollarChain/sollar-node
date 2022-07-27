@@ -19,7 +19,7 @@
     "iz3-bitcore-crypto",
     "iz3-basic-crypto",
     "iz3-starwave-crypto",
-    "iz3-block-fee"
+    "sollar-block-fee"
   ],
   "upnp": {
     "enabled": true,
