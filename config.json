@@ -37,7 +37,7 @@
   "walletsDB": "mem://wallets.json",
   "blocksDB": "blocks",
 
-  "appEntry": "./project/solar/app.js",
+  "appEntry": "./project/sollar/app.js",
 
   "allowMultipleConnectionsFromIp": true,
   "enableMessaging": false,
