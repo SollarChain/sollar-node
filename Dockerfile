@@ -14,6 +14,7 @@ RUN cd /app/plugins/iz3-bitcore-crypto && npm i
 # Node
 RUN npm i
 
-CMD ["node", "./main.js"]
+WORKDIR /app/project/sollar
+CMD ["node", "../../main.js", "—config=../../config.json"]
 
 EXPOSE 3017 6018
