@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sollar Blockchain node</title>
+
+    <!-- Bootstrap 4 -->
+    <link rel="stylesheet" href='./libs/bootstrap4.css'>
+
+    <!-- Bootstrap 5 -->
+    <link rel="stylesheet" href='./libs/bootstrap5.css'>
+    <script type="text/javascript" src='./libs/bootstrap5.js'></script>
+
+    <!-- Popper -->
+    <script src="./libs/popper.js"></script>
+
+    <!-- Tippy -->
+    <link rel="stylesheet" href='./libs/tippy6.css'>
+    <script src="./libs/tippy6.js"></script>
+
+    <script defer src="./libs/bundje.js"></script>
+
+    <!-- Crypto js (v 4.1.1) -->
+    <script defer src="./libs/crypto.min.js"></script>
+
+    <link rel="stylesheet" href='./style/style.css'>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <div class="containers container">
+        <div class="sollar-logo-container d-flex justify-content-center align-items-center">
+            <image src="./img/sollar-logo.png" width="100" height="100"></image>
+        </div>
+
+        <div id="wallet" class='d-flex justify-content-center align-items-center mt-3'>
+            <div id="wallet-auth" style='display: block;'>
+                <div class='col'>
+                    <p class="h3">Info</p>
+                </div>
+
+                <div class="col mb-2">
+                    <span>To activate the node, please log in with a Sollar wallet <br> that has at least 200,000 sol on its balance.</span>
+                </div>
+
+                <div class='col mb-2 mt-3'>
+                    <p class="h3">Import your wallet</p>
+                </div>
+
+                <div class="col mb-2">
+                    <label for="authfile" class="form-label">Upload or drag the file with keys</label>
+                    <input class="form-control" type="file" id="authfile">
+                </div>
+            </div>
+
+            <div id='my-wallet' style='display: none;'>
+                <div class='col'>
+                    <p class="h3">Your wallet</p>
+                </div>
+
+                <div class="col mb-2">
+                    <span class="col-key">Public address: </span>
+                    <span class="col-value publicKey" />
+                </div>
+
+                <div class="col mb-2">
+                    <span class="col-key">Balance: </span>
+                    <span class="col-value balance" />
+                </div>
+
+                <div class="col mt-5">
+                    <p class="h3">Node</p>
+                </div>
+
+                <div class="col mb-2">
+                    <span class="col-key">Public address: </span>
+                    <span class="col-value node-wallet" />
+                </div>
+
+                <div class="col mb-2">
+                    <span class="col-key">In validators list: </span>
+                    <span class="col-value node-status" />
+                </div>
+
+                <div class="col mb-2 mt-5">
+                    <button class="w-100 btn btn-lg btn-secondary" id='node-startValidating' style="display: none;" type="submit">Make a node a validator</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src='./libs/moment.js'></script>
+    <script type="text/javascript" src='./libs/jquery.js'></script>
+
+    <script defer src="../settings.js"></script>
+    <script defer src="./js/candy/starwaveCrypto.js"></script>
+    <script defer src="./js/candy/starwaveProtocol.js"></script>
+    <script defer src="./js/candy/NodeMetaInfo.js"></script>
+    <script defer src="./js/candy/digitalSignature.js"></script>
+    <script defer src="./js/candy/candy.js"></script>
+    <script defer src="./js/request.js"></script>
+    <script defer src="./js/index.js"></script>
+</body>
+</html>

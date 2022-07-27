@@ -1,0 +1,59 @@
+{
+  "name": "sollar-node",
+  "version": "0.1",
+  "description": "Sollar blockchain platform",
+  "main": "main.js",
+  "homepage": "https://sollar.tech",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SollarChain/sollar-node.git"
+  },
+  "scripts": {
+    "depency": "npm install",
+    "start": "node main.js",
+    "terminal": "node --experimental-repl-await api/node/terminal/terminal "
+  },
+  "dependencies": {
+    "bignumber.js": "^7.2.1",
+    "blob-util": "^1.3.0",
+    "body-parser": "^1.18.3",
+    "cli-color": "^2.0.0",
+    "commander": "^2.19.0",
+    "crypto-js": "^3.1.6",
+    "dnssd": "^0.4.1",
+    "cors": "^2.8.5",
+    "express": "^4.16.4",
+    "fs-extra": "^4.0.3",
+    "http-auth": "^3.2.3",
+    "isolated-vm": "^3.1.4",
+    "json-stable-stringify": "^1.0.1",
+    "keypair": "^1.0.1",
+    "level": "^6.0.0",
+    "leveldown": "^5.4.1",
+    "lodash": "^4.17.15",
+    "memdown": "^5.1.0",
+    "moment": "^2.24.0",
+    "node-rsa": "^0.4.2",
+    "semver": "^7.1.3",
+    "sqlite3": "^4.1.0",
+    "uglify-es": "^3.3.10",
+    "ws": ">=3.3.1"
+  },
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "author": "IZZZIO, LLC (https://izzz.io)",
+  "license": "Apache-2.0",
+  "keywords": [
+    "blockchain",
+    "p2p",
+    "peer2peer",
+    "dlt",
+    "node",
+    "sollar"
+  ],
+  "bin": {
+    "iz3node": "./main.js",
+    "izzzio": "./main.js"
+  }
+}

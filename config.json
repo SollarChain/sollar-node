@@ -1,0 +1,51 @@
+{
+  "p2pPort": 6018,
+  "validators": [
+    "pos"
+  ],
+  "httpServer": "0.0.0.0",
+  "httpPort": 3017,
+  "rpcPassword": "",
+  "blockAcceptCount": 0,
+  "maxPeers": 25,
+  "transactionIndexEnable": true,
+  "initialPeers": [
+    "wss://wss.testnet.sollar.tech/"
+  ],
+  "signFunction": "bitcore",
+  "hashFunction": "SHA256",
+  "generatorFunction": "bitcore",
+  "plugins": [
+    "iz3-bitcore-crypto",
+    "iz3-basic-crypto",
+    "iz3-starwave-crypto",
+    "iz3-block-fee"
+  ],
+  "upnp": {
+    "enabled": true,
+    "token": "iz3pos"
+  },
+  "ecmaContract": {
+    "enabled": true,
+    "allowDebugMessages": true,
+    "contractInstanceCacheLifetime": 10000,
+    "masterContract": 1
+  },
+
+  "workDir": "./runtime_client",
+  "walletFile": "./runtime_client/wallet.json",
+  "walletsDB": "mem://wallets.json",
+  "blocksDB": "blocks",
+
+  "appEntry": "./project/solar/app.js",
+
+  "allowMultipleConnectionsFromIp": true,
+  "enableMessaging": false,
+  "allowMultipleSocketsOnBus": true,
+  "disableWalletDeploy": false,
+  "peerExchangeInterval": 1000,
+
+  "appConfig": {
+    "NN_CONTRACT_ADDRESS": false
+  }
+}

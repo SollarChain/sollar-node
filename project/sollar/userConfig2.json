@@ -1,0 +1,53 @@
+{
+  "p2pPort": 6019,
+  "validators": [
+    "pos"
+  ],
+  "httpServer": "88.99.5.47",
+  "httpPort": 3018,
+  "rpcPassword": "",
+  "blockAcceptCount": 0,
+  "maxPeers": 25,
+  "transactionIndexEnable": true,
+  "initialPeers": [
+    "ws://88.99.5.47:6017"
+  ],
+  "signFunction": "bitcore",
+  "hashFunction": "SHA256",
+  "generatorFunction": "bitcore",
+  "plugins": [
+    "iz3-bitcore-crypto",
+    "iz3-basic-crypto",
+    "iz3-starwave-crypto",
+    "iz3-block-fee"
+  ],
+  "upnp": {
+    "enabled": true,
+    "token": "iz3pos"
+  },
+  "ecmaContract": {
+    "enabled": true,
+    "allowDebugMessages": true,
+    "contractInstanceCacheLifetime": 10000,
+    "masterContract": 1
+  },
+
+  "workDir": "./runtime3",
+  "walletFile": "./runtime3/wallet3.json",
+  "walletsDB": "mem://wallets3.json",
+  "blocksDB": "blocks3",
+
+  "appEntry": "./app.js",
+
+  "recieverAddress": "node3",
+
+  "allowMultipleConnectionsFromIp": true,
+  "enableMessaging": false,
+  "allowMultipleSocketsOnBus": true,
+  "disableWalletDeploy": false,
+  "peerExchangeInterval": 1000,
+
+  "appConfig": {
+    "NN_CONTRACT_ADDRESS": false
+  }
+}

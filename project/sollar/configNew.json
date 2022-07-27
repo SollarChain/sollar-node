@@ -1,0 +1,46 @@
+{
+  "p2pPort": 6017,
+  "validators": [
+    "pos"
+  ],
+  "httpServer": "0.0.0.0",
+  "httpPort": 3016,
+  "rpcPassword": "",
+  "blockAcceptCount": 0,
+  "maxPeers": 25,
+  "transactionIndexEnable": true,
+  "initialPeers": [
+  ],
+  "signFunction": "bitcore",
+  "hashFunction": "SHA256",
+  "generatorFunction": "bitcore",
+  "plugins": [
+    "iz3-bitcore-crypto",
+    "iz3-basic-crypto",
+    "iz3-starwave-crypto",
+    "sollar-block-fee"
+  ],
+  "upnp": {
+    "enabled": true,
+    "token": "sollarpos"
+  },
+  "ecmaContract": {
+    "enabled": true,
+    "allowDebugMessages": true,
+    "contractInstanceCacheLifetime": 10000,
+    "masterContract": 1
+  },
+
+  "workDir": "./runtime",
+  "walletFile": "./runtime/wallet.json",
+  "walletsDB": "mem://wallets.json",
+  "blocksDB": "blocks",
+
+  "allowMultipleConnectionsFromIp": true,
+  "enableMessaging": false,
+  "allowMultipleSocketsOnBus": true,
+  "disableWalletDeploy": false,
+  "peerExchangeInterval": 1000,
+  
+  "recieverAddress": "node1"
+}

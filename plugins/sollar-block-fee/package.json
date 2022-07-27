@@ -1,0 +1,22 @@
+{
+  "name": "iz3-fee",
+  "version": "1.0.0",
+  "description": "Sollar fee plugin",
+  "main": "index.js",
+  "dependencies": {
+    
+  },
+  "homepage": "https://sollar.tech",
+  "author": "",
+  "license": "GPL",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SollarChain/sollar-node.git"
+  },
+  "keywords": [
+    "blockchain",
+    "crypto",
+    "sollar",
+    "plugin"
+  ]
+}

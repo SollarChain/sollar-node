@@ -1,0 +1,8 @@
+{
+  "name": "keypoa-api",
+  "version": "1.0.0",
+  "description": "IZZZIO KeyPoA API module",
+  "main": "index.js",
+  "author": "IZZZIO, LLC",
+  "license": "ISC"
+}
