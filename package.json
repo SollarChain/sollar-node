@@ -1,6 +1,6 @@
 {
   "name": "sollar-node",
-  "version": "0.1",
+  "version": "0.1.0",
   "description": "Sollar blockchain platform",
   "main": "main.js",
   "homepage": "https://sollar.tech",
