@@ -6,9 +6,9 @@ const storj = require(global.PATH.mainDir + "/modules/instanceStorage");
 const DApp = require(global.PATH.mainDir + "/app/DApp");
 
 const fs = require('fs-extra');
-const MainContract = fs.readFileSync(`${global.PATH.mainDir}/project/solar/contract.js`).toString();
-const SecondContract = fs.readFileSync(`${global.PATH.mainDir}/project/solar/contract2.js`).toString();
-const SiteRegisterTemplate = fs.readFileSync(`${global.PATH.mainDir}/project/solar/templates/SiteContract.js`).toString();
+const MainContract = fs.readFileSync(`${global.PATH.mainDir}/project/sollar/contract.js`).toString();
+const SecondContract = fs.readFileSync(`${global.PATH.mainDir}/project/sollar/contract2.js`).toString();
+const SiteRegisterTemplate = fs.readFileSync(`${global.PATH.mainDir}/project/sollar/templates/SiteContract.js`).toString();
 
 const TokenContractConnector = require(global.PATH.mainDir + '/modules/smartContracts/connectors/TokenContractConnector');
 
