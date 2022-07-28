@@ -29,7 +29,12 @@
     "enabled": true,
     "allowDebugMessages": true,
     "contractInstanceCacheLifetime": 10000,
-    "masterContract": 1
+    "masterContract": 1,
+    "defaultLimits": {
+	"ram": 4096,
+	"timeLimit": 120000,
+        "callLimit": 40000
+    }
   },
 
   "workDir": "./runtime_client",

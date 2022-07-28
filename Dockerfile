@@ -15,6 +15,6 @@ RUN cd /app/plugins/iz3-bitcore-crypto && npm i
 RUN npm i
 
 WORKDIR /app/project/sollar
-CMD ["node", "../../main.js", "--config=../../config.json"]
+CMD ["node", "--max-old-space-size=4096", "../../main.js", "--config=../../config.json"]
 
 EXPOSE 3017 6018
