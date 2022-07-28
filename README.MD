@@ -28,3 +28,12 @@ To get started, make sure you have software: Git, Docker Engine
    ```bash
    # docker run -it -p 3017:3017 -p 6018:6018 --entrypoint /bin/bash docker-sollar-blockchain
    ```
+## 3. Node activation
+Next you should activate node.<br>
+After starting node, you may open a hello page in your browser.<br><br>
+Open the next link<br>
+```
+http://YOUR_SERVER_IP_ADDRESS:3017/node/
+```
+<br>
+Log in using the wallet from which you are going to transfer SOL to the staking contract. Make sure that this wallet has at least 200,000 SOL. Click on the "Activate" button. After that, 200,000 SOL will be debited from your wallet and the node will be activated.
