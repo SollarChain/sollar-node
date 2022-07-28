@@ -22,11 +22,11 @@ To get started, make sure you have software: Git, Docker Engine
 ### Run node:
    Use next command to run node in the background mode
    ```bash
-   # docker run -it -dp 3017:3017 -p 6018:6018 --entrypoint /bin/bash docker-sollar-blockchain
+   # docker run -it -dp 3017:3017 -p 6018:6018 docker-sollar-blockchain
    ```
    If you want to see log on the screen, use next command
    ```bash
-   # docker run -it -p 3017:3017 -p 6018:6018 --entrypoint /bin/bash docker-sollar-blockchain
+   # docker run -it -p 3017:3017 -p 6018:6018 docker-sollar-blockchain
    ```
 ## 3. Node activation
 Next you should activate node.<br>
