@@ -48,5 +48,6 @@
 
   "appConfig": {
     "NN_CONTRACT_ADDRESS": 1
-  }
+  },
+  "generateEmptyBlockDelay": 3600000000
 }
