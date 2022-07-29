@@ -2137,6 +2137,7 @@ function Blockchain(config) {
     if(wallet.id.length === 0) {
         wallet.generate();
         config.recieverAddress = wallet.getAddress(false);
+        starwave.config = config;
         console.log('');
         console.log('Message bus address: ' + config.recieverAddress);
     }
