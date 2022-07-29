@@ -2,4 +2,4 @@
 
 rm -r ./runtime && 
 mkdir runtime &&
-node ../../main.js
+node --max-old-space-size=4096 ../../main.js
