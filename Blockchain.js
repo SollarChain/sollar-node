@@ -144,6 +144,7 @@ function Blockchain(config) {
             wallet.block = -1;
         }
         config.recieverAddress = wallet.getAddress(false);
+        console.log('config.recieverAddress', config.recieverAddress);
         console.log('');
         console.log('Message bus address: ' + config.recieverAddress);
     }
@@ -152,16 +153,9 @@ function Blockchain(config) {
     //Wallet create
     if(wallet.id.length === 0) {
         wallet.generate();
+        config.recieverAddress = wallet.getAddress(false);
+        console.log('config.recieverAddress', config.recieverAddress);
     }
-
-    //Account manager
-    let accountManager = new AccountManager(config);
-    accountManager.addAccountWallet('default', wallet);
-    storj.put('accountManager', accountManager);
-
-    config.recieverAddress = wallet.getAddress(false);
-
-    console.log('config.recieverAddress', config.recieverAddress);
 
     let nodeMetaInfo = new NodeMetaInfo(config);
 
@@ -2146,6 +2140,11 @@ function Blockchain(config) {
         }
         return true;
     }
+
+    //Account manager
+    let accountManager = new AccountManager(config);
+    accountManager.addAccountWallet('default', wallet);
+    storj.put('accountManager', accountManager);
 
     //EcmaContract Smartcontracts
     if(typeof config.ecmaContract !== 'undefined' && config.ecmaContract.enabled) {
