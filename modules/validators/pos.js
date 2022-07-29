@@ -28,11 +28,11 @@ async function callMethodRollback(address, method, args = [], state = {}) {
         const ecmaContract = storj.get('ecmaContract');
         
         try {
-            if (!ecmaContract.contractExist(address)) {
+            if (!(await ecmaContract.contractExist(address))) {
                 resolve(false);
                 return;
             }
-            
+
             ecmaContract.callContractMethodRollback(address, method, state, function (err, result) {
                 if(err) {
                     reject(err);
