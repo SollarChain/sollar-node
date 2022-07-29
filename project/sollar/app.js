@@ -87,12 +87,14 @@ class App extends DApp {
     async loadContractsIds() {
         try {
             const masterContractAddress = this.getMasterContractAddress() || 1;
-            const contractIdsStr = await this.callMethodRollback(masterContractAddress, 'getContractsAddress');
-            const contractsIds = JSON.parse(contractIdsStr);
+            if (await this.contractExists(masterContractAddress)) {
+                const contractIdsStr = await this.callMethodRollback(masterContractAddress, 'getContractsAddress');
+                const contractsIds = JSON.parse(contractIdsStr);
 
-            const ids = [masterContractAddress].concat(contractsIds.map(_ => Number(_)));
+                const ids = [masterContractAddress].concat(contractsIds.map(_ => Number(_)));
 
-            this.contractIds = ids;
+                this.contractIds = ids;
+            }
         } catch (e) {
             console.error('Error | loadContractsIds', e);
         }
