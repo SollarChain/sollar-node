@@ -149,6 +149,17 @@ function Blockchain(config) {
     }
     console.log('');
 
+    //Wallet create
+    if(wallet.id.length === 0) {
+        wallet.generate();
+    }
+
+    //Account manager
+    let accountManager = new AccountManager(config);
+    accountManager.addAccountWallet('default', wallet);
+    storj.put('accountManager', accountManager);
+
+
     let nodeMetaInfo = new NodeMetaInfo(config);
 
     /**
@@ -2132,16 +2143,6 @@ function Blockchain(config) {
         }
         return true;
     }
-
-    //Wallet create
-    if(wallet.id.length === 0) {
-        wallet.generate();
-    }
-
-    //Account manager
-    let accountManager = new AccountManager(config);
-    accountManager.addAccountWallet('default', wallet);
-    storj.put('accountManager', accountManager);
 
     //EcmaContract Smartcontracts
     if(typeof config.ecmaContract !== 'undefined' && config.ecmaContract.enabled) {
