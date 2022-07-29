@@ -159,6 +159,7 @@ function Blockchain(config) {
     accountManager.addAccountWallet('default', wallet);
     storj.put('accountManager', accountManager);
 
+    config.recieverAddress = wallet.getAddress(false);
 
     let nodeMetaInfo = new NodeMetaInfo(config);
 
