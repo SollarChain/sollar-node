@@ -161,6 +161,8 @@ function Blockchain(config) {
 
     config.recieverAddress = wallet.getAddress(false);
 
+    console.log('config.recieverAddress', config.recieverAddress);
+
     let nodeMetaInfo = new NodeMetaInfo(config);
 
     /**
