@@ -23,7 +23,7 @@
   ],
   "upnp": {
     "enabled": true,
-    "token": "iz3pos"
+    "token": "sollarpos"
   },
   "ecmaContract": {
     "enabled": true,

@@ -575,7 +575,6 @@ class EcmaContract {
                         hash: 'hash',
                     }
                     address = block.index;
-                } else {
                 }
 
                 that.events.event(address, event, args, block, function (err) {
