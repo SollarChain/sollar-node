@@ -22,7 +22,7 @@ class API {
 	constructor() {
 		this.setPath('https://node1.testnet.sollar.tech');
 		this.nodes = ['wss://wss.testnet.sollar.tech/'];
-		this.nodeRecieverAddress = 'node1';
+		this.nodeRecieverAddress = '';
 
 		this.setPath(API_PREFIX);
 		this.nodes = nodes;
@@ -85,6 +85,27 @@ class API {
 			})
 			.catch(reject);
 		})
+	}
+
+	async getRecieverAddressMasterNode() {
+		const url = 'https://explorer.testnet.sollar.tech/recieverAddress';
+
+		return new Promise((reolsve, reject) => {
+			fetch(url, {
+				method: 'GET',
+				headers: this.headers,
+			})
+			.then(res => {
+				reolsve(res.json())
+			})
+			.catch(reject)
+		})
+	}
+
+	async updateRecieverAddressMasterNode() {
+		const {recieverAddress} = await this.getRecieverAddressMasterNode();
+
+		this.nodeRecieverAddress = recieverAddress;
 	}
 }
 
@@ -172,11 +193,11 @@ class Wallet extends API {
 		return false;
 	}
 
+
 	async loadNodeInfo() {
 		const nodeInfo = await this.getRequest(`/node/getInfo/`);
 		console.log('nodeInfo', nodeInfo);
 		this.node = nodeInfo;
-		this.nodeRecieverAddress = nodeInfo.recieverAddress;
 
 		$('.node-status').text(nodeInfo.nodeInValidators ? 'Yes' : 'No');
 		$('.node-wallet').text(nodeInfo.publicAddress);
@@ -282,6 +303,7 @@ async function checkExistWallet() {
 
 		wallet.loadBalance();
 		wallet.loadNodeInfo();
+		wallet.updateRecieverAddressMasterNode();
 		await initTransactions();
 	
 		$('#node-startValidating').on('click', async e => {
@@ -304,6 +326,7 @@ async function initTransactions() {
 				clearTimeout(transferTimeout);
 				await wallet.loadBalance();
 				await wallet.loadNodeInfo();
+				await wallet.updateRecieverAddressMasterNode();
 			}, 300);
 			console.log('new message', message);
 		}
