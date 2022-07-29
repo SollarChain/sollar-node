@@ -24,10 +24,15 @@ const moment = require('moment');
 let testWallet = new Wallet();
 
 async function callMethodRollback(address, method, args = [], state = {}) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         const ecmaContract = storj.get('ecmaContract');
         
         try {
+            if (!ecmaContract.contractExist(address)) {
+                resolve(false);
+                return;
+            }
+            
             ecmaContract.callContractMethodRollback(address, method, state, function (err, result) {
                 if(err) {
                     reject(err);
