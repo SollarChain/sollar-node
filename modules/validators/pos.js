@@ -28,11 +28,6 @@ async function callMethodRollback(address, method, args = [], state = {}) {
         const ecmaContract = storj.get('ecmaContract');
         
         try {
-            if (!(await ecmaContract.contractExist(address))) {
-                resolve(false);
-                return;
-            }
-
             ecmaContract.callContractMethodRollback(address, method, state, function (err, result) {
                 if(err) {
                     reject(err);
@@ -85,20 +80,16 @@ async function isValidNewBlock(newBlock, previousBlock) {
     }
 
     if (previousBlock.index > 0) {
-        try {
-            console.log('POS check block', newBlock.hash, newBlock.sign);
-            const masterContractAddress = blockchain.config.ecmaContract.masterContract;
-            const isValidWallet = await callMethodRollback(masterContractAddress, 'checkBlockSign', [newBlock.hash, newBlock.sign]);
-            console.log('isValidWallet', isValidWallet);
-            const feeFromBlock = await callMethodRollback(masterContractAddress, 'getFeeFromBlock', [newBlock]);
-            console.log('feeFromBlock', feeFromBlock);
+        console.log('POS check block', newBlock.hash, newBlock.sign);
+        const masterContractAddress = blockchain.config.ecmaContract.masterContract;
+        const isValidWallet = await callMethodRollback(masterContractAddress, 'checkBlockSign', [newBlock.hash, newBlock.sign]);
+        console.log('isValidWallet', isValidWallet);
+        const feeFromBlock = await callMethodRollback(masterContractAddress, 'getFeeFromBlock', [newBlock]);
+        console.log('feeFromBlock', feeFromBlock);
 
-            const checkBlockFee = typeof newBlock.fee === 'undefined' || newBlock.fee == feeFromBlock;
-            console.log('checkBlockFee', checkBlockFee, typeof newBlock.fee === 'undefined', newBlock.fee == feeFromBlock)
-            return isValidWallet && checkBlockFee;
-        } catch (e) {
-            return false;
-        }
+        const checkBlockFee = typeof newBlock.fee === 'undefined' || newBlock.fee == feeFromBlock;
+        console.log('checkBlockFee', checkBlockFee, typeof newBlock.fee === 'undefined', newBlock.fee == feeFromBlock)
+        return isValidWallet && checkBlockFee;
     }
 
     return true;
