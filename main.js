@@ -53,29 +53,29 @@ const getid = require('./modules/getid');
 let config = {
 
     //Networking
-    httpPort: 3001,                     //RPC and interface binding port
-    p2pPort: 6013,                      //P2P port (it is better to leave the same everywhere)
+    httpPort: 3017,                     //RPC and interface binding port
+    p2pPort: 6018,                      //P2P port (it is better to leave the same everywhere)
     sslMode: false,                     //Enable SSL mode
-    httpServer: 'localhost',            //Address of the RPC binding and interface
+    httpServer: '0.0.0.0',            //Address of the RPC binding and interface
     rpcPassword: getid() + getid(),
     initialPeers: [                     //Starting nodes, for synchronization with the network
     ],
     allowMultipleConnectionsFromIp: true,//False - if there are a lot of loops in the network, True - if a proxy is used for the connection
-    maxPeers: 80,                       //The recommended number is 15-20
+    maxPeers: 25,                       //The recommended number is 15-20
     upnp: {                              //Automatic detection of network nodes
         enabled: true,                  //Enable automatic node detection on the network
-        token: 'iz3node'                //The token by which the node will search for other nodes (must be unique for each chain)
+        token: 'sollarpos'                //The token by which the node will search for other nodes (must be unique for each chain)
     },
     networkPassword: '',                //network access "password"
 
     //Blockchain
-    blockAcceptCount: 20,               //Number of transaction confirmation blocks
-    hearbeatInterval: 10000,             //Internal node timer
-    peerExchangeInterval: 5000,        //Refresh rate of peers
+    blockAcceptCount: 0,               //Number of transaction confirmation blocks
+    hearbeatInterval: 20000,             //Internal node timer
+    peerExchangeInterval: 3000,        //Refresh rate of peers
     maxBlockSend: 600,                  //Should be greater than blockQualityCheck
     blockQualityCheck: 100,             //The number of blocks "over" that we request to verify the validity of the chain
     limitedConfidenceBlockZone: 288,    //The zone of "trust". The chain cannot be changed earlier than this zone. There should be more blockQualityCheck
-    generateEmptyBlockDelay: 300 * 1000,//5 minutes - With what frequency it is necessary to release empty blocks into the network when the network is idle
+    generateEmptyBlockDelay: 5 * 60 * 1000,//5 minutes - With what frequency it is necessary to release empty blocks into the network when the network is idle
     blockHashFilter: {                  //Correct Block Filter for LCPoA
         blockEndls: [                   //4 characters at the end of the block. Genesis should get here
             'f3c8',
@@ -87,8 +87,9 @@ let config = {
     genesisTiemstamp: 1492004951 * 1000, //2017-07-23 01:00:00 Vitamin blockchain first started
     newNetwork: false,                   //If the launch of a new blockchain network is detected, an automatic issue of keys and money will be made
     lcpoaVariantTime: 1,                //The number of milliseconds required to generate a single block hash
-    validators: [                       //"Validators" - additional validators of blocks, for the introduction of additional consensuses, except LCPoA
-        'dlcpoa',
+    validators: [
+        'pos',                     //"Validators" - additional validators of blocks, for the introduction of additional consensuses, except LCPoA
+        // 'dlcpoa',
         //'lcpoa',                        //WITHOUT CONSENSUS WITHOUT KEYS, AUTOMATIC EMISSION IS IMPOSSIBLE
         //'thrusted'
     ],
@@ -104,14 +105,14 @@ let config = {
     messagingMaxTTL: 3,                 //Maximum limit of message jumps
         //maximumInputSize: 15 * 1024 * 1024, //Maximum message size (here 15 megabytes)
     maximumInputSize: 2 * 1024 * 1024,
-    allowMultipleSocketsOnBus: false, //permission to connect sockets with different addresses to the same bus address
+    allowMultipleSocketsOnBus: true, //permission to connect sockets with different addresses to the same bus address
     isPosActive: true,
 
 
     //Wallet
-    walletFile: './wallet.json',         //Wallet file address
-    workDir: '.',
-    disableWalletDeploy: true,
+    walletFile: './runtime/wallet.json',         //Wallet file address
+    workDir: './runtime',
+    disableWalletDeploy: false,
 
     //Database
     blocksDB: 'blocks',                     // false - for storage in RAM, mega://bloks.json for storage in RAM and writing to ROM when unloading
@@ -128,28 +129,32 @@ let config = {
         allowDebugMessages: false,              //Allows the output of messages to smart contracts
         contractInstanceCacheLifetime: 10000,   //Lifetime of the contract VM instance
         //ramLimit: 32,                         //Max RAM limit for contracts. Can be replaced by @deprecated
-        masterContract: 5,                      //The main contract in the system. Implements the token functionality
+        masterContract: 1,                      //The main contract in the system. Implements the token functionality
         maxContractLength: 10 * 1024 * 1024,    // Max. size of the contract to be added
-        defaultLimits: { 
-            ram: 256, 
-            timeLimit: 30000, 
-            callLimit: 10000 
+        defaultLimits: {
+            ram: 256,
+            timeLimit: 30000,
+            callLimit: 10000
         }
     },
 
     //Cryptography
     hashFunction: 'SHA256',                 //hash calculation function
-    signFunction: 'NEWRSA',                 //Digital signature calculation and password generation function (empty means it is used by default), 'NEWSA'
+    signFunction: 'bitcore',                 //Digital signature calculation and password generation function (empty means it is used by default), 'NEWSA'
     keyLength: 2048,                        //Key length for some algorithms
-    generatorFunction: 'NEWRSA',            //Key generator function
+    generatorFunction: 'bitcore',            //Key generator function
 
 
     //Enabled plugins
     dbPlugins: [],                      //Database plugins list
     plugins: [                          //Crypto and other plugins
-        "iz3-basic-crypto"
+        "iz3-bitcore-crypto",
+        "iz3-basic-crypto",
+        "iz3-starwave-crypto",
+        "sollar-block-fee"
     ],
-    "appConfig": {                          //DApp config placement
+    appConfig: {                          //DApp config placement
+        NN_CONTRACT_ADDRESS: false,
     },
 
     blockCacheLifeTime: 50,
@@ -281,8 +286,6 @@ if(config.startMessage) {
 if (!fs.existsSync(config.workDir)) {
     fs.mkdirSync(config.workDir);
 }
-
-console.log('recieverAddress', config.recieverAddress);
 
 const blockchain = new Blockchain(config);
 blockchain.start();

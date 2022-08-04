@@ -39,6 +39,7 @@ class starwaveProtocol {
          */
         this._messageMutex = {};
         storj.put('starwaveProtocol', this);
+        console.log('------------------', 'starwave address', this.config.recieverAddress);
     }
 
     /**
@@ -121,18 +122,28 @@ class starwaveProtocol {
     sendMessageToPeer(messageBusAddress, message) {
         let that = this;
         if(typeof that.blockchain !== 'undefined') {
-
+            console.log('messageBusAddress', messageBusAddress, this.getAddress());
             if(messageBusAddress === this.getAddress()) { //message to yourself
                 this.handleMessage(message, this.blockchain.messagesHandlers, null);
                 return true;
             } else {
+                console.log('getSocketByBusAddress', messageBusAddress);
                 let socket = this.blockchain.getSocketByBusAddress(messageBusAddress);
 
                 if(!socket) {  //there is no such connected socket
+                    console.log('socket not found');
                     return false;
                 } else {
+                    console.log('socket FOUND')
                     //adding your address to the routes if the route is not completed
-                    if(!this.routeIsComplete(message)) {
+                    const routeIsComplete = !this.routeIsComplete(message);
+                    console.log('routeIsComplete', routeIsComplete);
+                    if (message.route.includes(this.config.recieverAddress) || message.route.length > 10) {
+                        console.log('Dupe routes')
+                        return false;
+                    }
+                    
+                    if(routeIsComplete) {
                         message.route.push(this.config.recieverAddress);
                     }
                     //sending a message
@@ -157,6 +168,10 @@ class starwaveProtocol {
             let prevSender; //the sender of the message
             if(message.route.length > 0) { //if the route array is empty, it means that this is the first sending of the message and you need to send it without restrictions
                 //save the previous sender (he is recorded last in the array of routes)
+                if (message.route.includes(this.config.recieverAddress) || message.route.length > 10) {
+                    console.log('Dupe routes');
+                    return;
+                }
                 prevSender = that.blockchain.getSocketByBusAddress(message.route[message.route.length - 1]);
             }
             //adding your address to routes
@@ -174,11 +189,15 @@ class starwaveProtocol {
      * @param message //message object
      */
     sendMessage(message) {
-        if(!this.sendMessageToPeer(message.reciver, message)) {       //it was not possible to send directly, there is no directly connected peer, we make a newsletter to everyone
+        const send = !this.sendMessageToPeer(message.reciver, message);
+        console.log('this.sendMessageToPeer', send)
+        if(send) {       //it was not possible to send directly, there is no directly connected peer, we make a newsletter to everyone
             //, we clear the route, starting from the current node
             this.broadcastMessage(message);
+            console.log('return', 2);
             return 2; //sent broadcast
         }
+        console.log('return', 1);
         return 1; //sent directly
     };
 

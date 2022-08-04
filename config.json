@@ -1,4 +1,5 @@
 {
+  "version": "0.1.1",
   "p2pPort": 6018,
   "validators": [
     "pos"
@@ -31,27 +32,20 @@
     "contractInstanceCacheLifetime": 10000,
     "masterContract": 1,
     "defaultLimits": {
-	"ram": 4096,
-	"timeLimit": 120000,
-        "callLimit": 40000
+      "ram": 4096,
+      "timeLimit": 120000,
+      "callLimit": 40000
     }
   },
 
-  "workDir": "./runtime_client",
-  "walletFile": "./runtime_client/wallet.json",
+  "workDir": "./runtime",
+  "walletFile": "./runtime/wallet.json",
   "walletsDB": "mem://wallets.json",
   "blocksDB": "blocks",
 
-  "appEntry": "./project/sollar/app.js",
-
-  "allowMultipleConnectionsFromIp": true,
-  "enableMessaging": false,
-  "allowMultipleSocketsOnBus": true,
-  "disableWalletDeploy": false,
-  "peerExchangeInterval": 1000,
+  "appEntry": "./sollar/app.js",
 
   "appConfig": {
     "NN_CONTRACT_ADDRESS": false
-  },
-  "generateEmptyBlockDelay": 3600000000
+  }
 }

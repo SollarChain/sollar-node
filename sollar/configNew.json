@@ -36,11 +36,9 @@
   "walletsDB": "mem://wallets.json",
   "blocksDB": "blocks",
 
-  "allowMultipleConnectionsFromIp": true,
+  "allowMultipleConnectionsFromIp": false,
   "enableMessaging": false,
   "allowMultipleSocketsOnBus": true,
   "disableWalletDeploy": false,
-  "peerExchangeInterval": 1000,
-  
-  "recieverAddress": "node1"
+  "peerExchangeInterval": 1000
 }

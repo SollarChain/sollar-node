@@ -1,16 +1,15 @@
 {
-  "p2pPort": 6019,
+  "p2pPort": 6017,
   "validators": [
     "pos"
   ],
-  "httpServer": "88.99.5.47",
-  "httpPort": 3018,
+  "httpServer": "0.0.0.0",
+  "httpPort": 3016,
   "rpcPassword": "",
   "blockAcceptCount": 0,
   "maxPeers": 25,
   "transactionIndexEnable": true,
   "initialPeers": [
-    "ws://88.99.5.47:6017"
   ],
   "signFunction": "bitcore",
   "hashFunction": "SHA256",
@@ -23,31 +22,23 @@
   ],
   "upnp": {
     "enabled": true,
-    "token": "iz3pos"
+    "token": "sollarpos"
   },
   "ecmaContract": {
     "enabled": true,
     "allowDebugMessages": true,
-    "contractInstanceCacheLifetime": 10000,
+    "contractInstanceCacheLifetime": 60000,
     "masterContract": 1
   },
 
-  "workDir": "./runtime3",
-  "walletFile": "./runtime3/wallet3.json",
-  "walletsDB": "mem://wallets3.json",
-  "blocksDB": "blocks3",
+  "workDir": "./runtime",
+  "walletFile": "./runtime/wallet.json",
+  "walletsDB": "mem://wallets.json",
+  "blocksDB": "blocks",
 
   "appEntry": "./app.js",
 
-  "recieverAddress": "node3",
-
-  "allowMultipleConnectionsFromIp": true,
-  "enableMessaging": false,
-  "allowMultipleSocketsOnBus": true,
-  "disableWalletDeploy": false,
-  "peerExchangeInterval": 1000,
-
   "appConfig": {
-    "NN_CONTRACT_ADDRESS": false
+    "NN_CONTRACT_ADDRESS": 1
   }
 }

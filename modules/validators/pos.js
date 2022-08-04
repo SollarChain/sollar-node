@@ -26,7 +26,11 @@ let testWallet = new Wallet();
 async function callMethodRollback(address, method, args = [], state = {}) {
     return new Promise(async (resolve, reject) => {
         const ecmaContract = storj.get('ecmaContract');
-        
+
+        if (!(await ecmaContract.contractExists(address))) {
+            resolve(false);
+        }
+
         try {
             ecmaContract.callContractMethodRollback(address, method, state, function (err, result) {
                 if(err) {
@@ -79,20 +83,21 @@ async function isValidNewBlock(newBlock, previousBlock) {
         return false;
     }
 
-    if (previousBlock.index > 0) {
-        console.log('POS check block', newBlock.hash, newBlock.sign);
-        const masterContractAddress = blockchain.config.ecmaContract.masterContract;
-        const isValidWallet = await callMethodRollback(masterContractAddress, 'checkBlockSign', [newBlock.hash, newBlock.sign]);
-        console.log('isValidWallet', isValidWallet);
-        const feeFromBlock = await callMethodRollback(masterContractAddress, 'getFeeFromBlock', [newBlock]);
-        console.log('feeFromBlock', feeFromBlock);
-
-        const checkBlockFee = typeof newBlock.fee === 'undefined' || newBlock.fee == feeFromBlock;
-        console.log('checkBlockFee', checkBlockFee, typeof newBlock.fee === 'undefined', newBlock.fee == feeFromBlock)
-        return isValidWallet && checkBlockFee;
+    if ([1, 2].includes(newBlock.index)) {
+        return true;
     }
 
-    return true;
+    console.log('\n');
+    console.log('POS check block', previousBlock.index, '-', newBlock.index);
+    const masterContractAddress = blockchain.config.ecmaContract.masterContract;
+    const isValidWallet = await callMethodRollback(masterContractAddress, 'checkBlockSign', [newBlock.hash, newBlock.sign]) || testWallet.verifyData(newBlock.hash, newBlock.sign, JSON.parse(newBlock.data)?.state?.from);
+    const feeFromBlock = await callMethodRollback(masterContractAddress, 'getFeeFromBlock', [newBlock]);
+
+    console.log('pos', masterContractAddress, isValidWallet, newBlock.fee, feeFromBlock);
+
+    const checkBlockFee = typeof newBlock.fee === 'undefined' || newBlock.fee == feeFromBlock;
+    console.log('pos 2', isValidWallet, checkBlockFee);
+    return isValidWallet && checkBlockFee;
 }
 
 

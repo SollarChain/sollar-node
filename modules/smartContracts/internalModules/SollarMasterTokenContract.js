@@ -75,6 +75,9 @@
          this._MaxContractLengthChange = new Event('MaxContractLengthChange', 'string', 'number');
          
          this._Contracts = new BlockchainArray('Contracts');
+
+         this._whiteList = new BlockchainMap('whiteList');
+        this._whiteListWallets = new BlockchainArray('whiteListWallets');
     
          if (contracts.isDeploy()) {
              this._resourcePrice['ram'] = RESOURCES_PRICE.ram;
@@ -84,8 +87,262 @@
  
              this._maxContractLength.put('maxContractLength', MAX_CONTRACT_LENGTH);
              this._MaxContractLengthChange.emit('initial', this.getCurrentMaxContractLength());
+
+             const ownerWallet = this._sollarSettings['firstDeployOwner'];
+             this._wallets.mint(ownerWallet, this._sollarSettings['validatorFee']);
+             this.addNodeToWhiteList(ownerWallet, this._getSender());
          }
      }
+
+     getNodesCount() {
+        return this._whiteListWallets.length;
+    }
+
+    
+    disableNodeFromWhiteList() {
+        const address = this._getSender();
+
+        assert.true(this._whiteList[address], 'Node not added');
+
+        const wallet = this._whiteList[address];
+        const time_add = wallet.time_add;
+        const time_now = Date.now();
+        const validatorTimeRange = this._sollarSettings['validatorTimeRange'];
+
+        assert.true(time_now - time_add >= validatorTimeRange, 'Disable node not ready');
+
+        this._wallets.transfer(this._contract['wallet'], wallet.owner, wallet.amount);
+
+        wallet.isActive = false;
+        wallet.isClaimed = true;
+
+        this._whiteList[address] = wallet;
+    }
+
+    
+    _checkWalletIsCanValidate(wallet, isValidated=false) {
+        return wallet.isValidated === isValidated && wallet.isActive === true && wallet.isClaimed === false && wallet.isOnline === true;
+    }
+
+    _isAllNodesValidated() {
+        for (const address of this._whiteListWallets) {
+            const wallet = this._whiteList[address];
+            if (this._checkWalletIsCanValidate(wallet, false)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    
+    getNodeInValidatorsList() {
+        for (const address of this._whiteListWallets) {
+            const wallet = this._whiteList[address];
+            return JSON.stringify(wallet);
+        }
+    }
+
+    getNodeForValidating() {
+        for (const address of this._whiteListWallets) {
+            const wallet = this._whiteList[address];
+            if (this._checkWalletIsCanValidate(wallet)) {
+                return JSON.stringify(wallet);
+            }
+        }
+
+        return false;
+    }
+    
+    checkIsNodeCanValidate(address = this._getSender()) {
+        if (!this._whiteList[address]) {
+            return false;
+        }
+
+        if (this._checkWalletIsCanValidate(this._whiteList[address], true)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    checkIsNodeInValidators(address=this._getSender()) {
+        return !!this._whiteList[address];
+    }
+
+    
+    checkBlockSign(hash, sign) {
+        for (const address of this._whiteListWallets) {
+            const wallet = this._whiteList[address];
+
+            if (global.crypto.verifySign(hash, sign, wallet.address)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+    
+    resetNodes() {
+        assert.assert(this._isAllNodesValidated(), 'Not all nodes is validated');
+
+        for (const address of this._whiteListWallets) {
+            const wallet = this._whiteList[address];
+            wallet.isValidated = false;
+            this._whiteList[address] = wallet;
+        }
+    }
+
+    _getBlockEmission() {
+        return this._sollarSettings['blockEmission'];
+    }
+
+    
+    _setNodeIsValidated(nodeAddress = this._getSender()) {
+        assert.true(this._whiteList[nodeAddress], 'Node not in whitelist');
+        assert.false(this._checkWalletIsCanValidate(this._whiteList[nodeAddress], true), 'You can\'t validate');
+
+        const wallet = this._whiteList[nodeAddress];
+        wallet.isValidated = true;
+        this._whiteList[nodeAddress] = wallet;
+
+        const emission = this._getBlockEmission();
+
+        this._wallets.mint(wallet.owner, new BigNumber(emission));
+        this._MintEvent.emit(wallet.owner, new BigNumber(emission));
+        
+        return emission;
+    }
+
+
+    
+    _getTransferFee(amount) {
+        const transferAmount = Number((amount / 100 * 1).toFixed(8));
+        assert.assert(transferAmount >= this._sollarSettings['minFee'], 'Invalid minimum fee');
+        return transferAmount;
+    }
+
+    getFeeFromBlock(block) {
+        assert.true(block, 'Invalid block');
+        const data = block.data;
+        const fee = data.length * this._sollarSettings['feeCoef'];
+        block.fee = fee;
+
+        return fee;
+    }
+
+    
+    calculateBlockFee(state) {
+        const sender = state.sender;
+        const reciever = state.from;
+        const wallet = this._whiteList[reciever];
+        const fee = this.getFeeFromBlock(state.block);
+
+        assert.true(fee >= 0, 'Invalid amount');
+
+        const blockEmission = this._setNodeIsValidated(reciever, wallet.owner);
+
+        this._wallets.transfer(sender, wallet.owner, fee);
+        this._TransferFeeEvent.emit('SOL', sender, wallet.owner, fee + blockEmission, 0, Date.now());
+
+        return String(fee);
+    }
+
+    
+    getFeeFromContractCode(contractLength) {
+        assert.true(contractLength, 'Invalid contract code');
+        const fee = contractLength * this._sollarSettings['feeCoef'];
+
+        return fee;
+    }
+
+    calculateContractFee(contractData, contractLength, checkBalance=true) {
+        const sender = contractData.state.sender;
+        const reciever = contractData.state.from;
+        const wallet = this._whiteList[reciever];
+        assert.true(wallet, 'You\'re not a validator');
+        
+        const fee = this.getFeeFromContractCode(contractLength);
+
+        if (checkBalance) {
+            const senderBalance = new BigNumber(this.balanceOf(sender));
+            assert.assert(senderBalance.isGreaterThanOrEqualTo(fee), 'Insufficient funds');
+        } else {
+            const blockEmission = this._setNodeIsValidated(reciever, wallet.owner);
+
+            this._wallets.transfer(sender, wallet.owner, fee);
+            
+            this._ContractFeeEvent.emit('SOL', sender, wallet.owner, fee, 0, Date.now());
+            this._TransferFeeEvent.emit('SOL', sender, wallet.owner, fee + blockEmission, 0, Date.now());
+        }
+        return String(fee);
+    }
+
+    setNodeIsOffline(nodeWallet) {
+        assert.true(nodeWallet, 'Wallet is empty');
+
+        // TODO: only validators can set node is offline
+
+        const wallet = this._whiteList[nodeWallet];
+
+        assert.true(wallet, 'Node is not in validator list');
+
+        wallet.isOnline = false;
+
+        this._whiteList[nodeWallet] = wallet;
+    }
+
+    checkNodeIsOnline(nodeWallet = this._getSender()) {
+        const wallet = this._whiteList[nodeWallet];
+
+        assert.true(wallet, 'Node is not in validator list');
+
+        return wallet.isOnline;
+    }
+
+    setNodeIsOnline(nodeWallet = this._getSender()) {
+        const wallet = this._whiteList[nodeWallet];
+
+        assert.true(wallet, 'Node is not in validator list');
+
+        assert.false(wallet.isOnline, 'Node already in online');
+
+        wallet.isOnline = true;
+
+        this._whiteList[nodeWallet] = wallet;
+    }
+
+     _addNodeToWhiteList(ownerWallet, nodeWallet = this._getSender()) {
+        const validatorFee = this._sollarSettings['validatorFee'];
+
+        const wallet = {
+            address: nodeWallet,
+            owner: ownerWallet,
+            amount: validatorFee,
+            time_add: Date.now(),
+            isActive: true,
+            isOnline: true,
+            isClaimed: false,
+            isValidated: false,
+        };
+
+        this._whiteList[nodeWallet] = wallet;
+        this._whiteListWallets.push(nodeWallet);
+    }
+
+     addNodeToWhiteList(ownerWallet, nodeWallet = this._getSender()) {
+        const validatorFee = this._sollarSettings['validatorFee'];
+
+        console.log('add node to validators', ownerWallet, nodeWallet);
+        assert.false(this._whiteList[nodeWallet], 'Node already added');
+
+        const walletBalance = Number(this.balanceOf(ownerWallet));
+
+        assert.true(walletBalance >= validatorFee, 'Insufficient funds');
+        this._wallets.transfer(ownerWallet, this._contract['wallet'], validatorFee);
+
+        return this._addNodeToWhiteList(ownerWallet, nodeWallet);
+    }
  
      /**
       * Used whe payable method is called from the other contract

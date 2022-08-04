@@ -64,6 +64,8 @@ const METHODS_WITHOUT_FEE = [
     'siteAuthorization',
     // 'payForRefferal',
     'resetNodes',
+    'setNodeIsOnline',
+    'setNodeIsOffline',
 ];
 
 /**
@@ -566,8 +568,6 @@ class EcmaContract {
             _emit: function (event, args, block, address) {
                 let sync = vmSync();
 
-                console.log('wwwwwwwwwww', 'EMIT', address, event, args, block)
-
                 if (!block) {
                     block = {
                         timestamp: Date.now(),
@@ -604,7 +604,6 @@ class EcmaContract {
                     assert.true(Array.isArray(args), 'Event arguments must be an array');
                     assert.true(args.length <= 10, 'Event can take 10 arguments maximum');
                     assert.true(typeof event === 'string', 'Event name must be a string');
-                    console.log('------------------', 'state', state);
 
                     const contractAddress = state.contractAddress || 1;
                     const block = state.block;
@@ -1235,7 +1234,6 @@ class EcmaContract {
 
                         instance.vm.setState(state);
                         instance.vm.runContextMethod("updateExternalState");
-
                         instance.vm.runContextMethodAsync(`contract.${method}`, async (err, result) => {
                             if (err) {
                                 logger.error(`Contract "${address}" in method "${method}" falls with error: ${err}`);
@@ -1316,13 +1314,10 @@ class EcmaContract {
                                 return;
                             }
 
-                            // console.log('state', state);
-
                             state.block.fee = Number(fee);
 
                             instance.vm.setState(state);
                             instance.vm.runContextMethod("updateExternalState");
-
                             instance.vm.runContextMethodAsync(`contract.${method}`, async (err, result) => {
                                 if (err) {
                                     logger.error(`Contract "${address}" in method "${method}" falls with error: ${err}`);

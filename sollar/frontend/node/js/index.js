@@ -193,11 +193,18 @@ class Wallet extends API {
 		return false;
 	}
 
+	lastNodeInValidators = null;
 
 	async loadNodeInfo() {
 		const nodeInfo = await this.getRequest(`/node/getInfo/`);
 		console.log('nodeInfo', nodeInfo);
 		this.node = nodeInfo;
+
+		if (this.lastNodeInValidators === null) {
+			this.lastNodeInValidators = nodeInfo.nodeInValidators; 
+		} else if (this.lastNodeInValidators != nodeInfo.nodeInValidators) {
+			setTimeout(this.loadBalance(), 5000);
+		}
 
 		$('.node-status').text(nodeInfo.nodeInValidators ? 'Yes' : 'No');
 		$('.node-wallet').text(nodeInfo.publicAddress);
@@ -207,10 +214,11 @@ class Wallet extends API {
 			$('#node-startValidating').addClass('btn-secondary');
 			$('#node-startValidating').css('display', 'none');
 
+			$('#node-progressValidating').css('display', 'none');
+
 			$('.node-status').removeClass('text-danger');
 			$('.node-status').addClass('text-success');
 		} else {
-			$('#node-startValidating').css('display', 'block');
 			$('#node-startValidating').addClass('btn-success');
 			$('#node-startValidating').removeClass('btn-secondary');
 
@@ -219,15 +227,15 @@ class Wallet extends API {
 		}
 	}
 
-	async startNodeToValidate() {
-		const body = [this.data.public, this.node.publicAddress, this.node.recieverAddress];
+	async startNodeToValidate(contractAddress=this.master_contract_address) {
+		const body = [this.data.public, this.node.publicAddress];
 
 		const message = candy.starwave.createMessage(
 			body, 
 			this.nodeRecieverAddress,
 			undefined,
 		'addNodeToWhiteList')
-		message['contractAddress'] = this.master_contract_address;
+		message['contractAddress'] = contractAddress;
 		candy.starwave.sendMessage(message);
 
 		setTimeout(() => this.loadNodeInfo(), 5000);
@@ -304,11 +312,26 @@ async function checkExistWallet() {
 		wallet.loadBalance();
 		wallet.loadNodeInfo();
 		wallet.updateRecieverAddressMasterNode();
+		
+		setInterval(() => wallet.loadBalance(), 5000);
+		setInterval(() => wallet.loadNodeInfo(), 5000);
+		setInterval(() => wallet.updateRecieverAddressMasterNode(), 5000);
+
 		await initTransactions();
 	
 		$('#node-startValidating').on('click', async e => {
+			$('#node-startValidating').css('display', 'none');
+			$('#node-progressValidating').css('display', 'block');
+
 			if (!wallet.nodeInValidators) {
 				await wallet.startNodeToValidate();
+			}
+			else {
+				setInterval(() => {
+					wallet.loadBalance();
+					wallet.loadNodeInfo();
+					wallet.updateRecieverAddressMasterNode();
+				}, 4000);
 			}
 		})
 	}

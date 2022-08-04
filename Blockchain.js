@@ -97,7 +97,6 @@ function Blockchain(config) {
     const blockController = new (require('./modules/blockchain'))();
     const NodeMetaInfo = require('./modules/NodeMetaInfo');
     const StarwaveProtocol = require('./modules/starwaveProtocol');
-    let starwave = new StarwaveProtocol(config, blockchainObject);
     const BlockchainInfo = require('./modules/blockchainInfo');
     const blockchainInfo = new BlockchainInfo(blockchainObject);
     let lastBlockInfo = {}; //информация о последнем запрошенном блоке
@@ -148,8 +147,6 @@ function Blockchain(config) {
         console.log('Message bus address: ' + config.recieverAddress);
     }
     console.log('');
-
-    let nodeMetaInfo = new NodeMetaInfo(config);
 
     /**
      * Block Database
@@ -1173,7 +1170,7 @@ function Blockchain(config) {
                             logger.info('Synchronize: Received ' + latestBlockHeld.index + ' of ' + latestBlockReceived.index);
                         }
                     }
-                    //console.log(latestBlockHeld.index, latestBlockReceived.index, latestBlockHeld.hash, latestBlockReceived.previousHash)
+                    // console.log(latestBlockHeld.index, latestBlockReceived.index, latestBlockHeld.hash, latestBlockReceived.previousHash)
                     if(latestBlockHeld.hash === latestBlockReceived.previousHash /*&& latestBlockHeld.index > 5*/) { //when one block is received from the one we have
 
                         if(await isValidChain(receivedBlocks) && (receivedBlocks[0].index <= maxBlock || receivedBlocks.length === 1)) {
@@ -1946,7 +1943,6 @@ function Blockchain(config) {
 
     blockchainObject = {
         config: config,
-        validators: nodeMetaInfo,
         start: start,
         getid: getid,
         write: write,
@@ -2029,9 +2025,6 @@ function Blockchain(config) {
 
     //Message dispatcher
     blockchainObject.messagesDispatcher = new MessagesDispatcher(config, blockchainObject);
-
-    //StarWave messaging protocol
-    starwave.blockchain = blockchainObject;
 
     //Plugins
     if(config.plugins.length > 0) {
@@ -2133,16 +2126,21 @@ function Blockchain(config) {
         return true;
     }
 
-    //Wallet create
+    // Wallet create
     if(wallet.id.length === 0) {
         wallet.generate();
         config.recieverAddress = wallet.getAddress(false);
-        starwave.config = config;
         console.log('');
         console.log('Message bus address: ' + config.recieverAddress);
     }
 
-    //Account manager
+    let nodeMetaInfo = new NodeMetaInfo(config);
+    blockchainObject.validators = nodeMetaInfo;
+
+    // StarWave messaging protocol
+    let starwave = new StarwaveProtocol(config, blockchainObject);
+
+    // Account manager
     let accountManager = new AccountManager(config);
     accountManager.addAccountWallet('default', wallet);
     storj.put('accountManager', accountManager);

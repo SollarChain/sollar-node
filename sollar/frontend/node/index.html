@@ -51,6 +51,7 @@
                     <label for="authfile" class="form-label">Upload or drag the file with keys</label>
                     <input class="form-control" type="file" id="authfile">
                 </div>
+                
             </div>
 
             <div id='my-wallet' style='display: none;'>
@@ -83,7 +84,8 @@
                 </div>
 
                 <div class="col mb-2 mt-5">
-                    <button class="w-100 btn btn-lg btn-secondary" id='node-startValidating' style="display: none;" type="submit">Make a node a validator</button>
+                    <button class="w-100 btn btn-lg btn-secondary" id='node-startValidating' style="display: block;" type="submit">Make this node a validator</button>
+                    <div class="loading" id="node-progressValidating" style="display: none;">In progress</div>
                 </div>
             </div>
         </div>

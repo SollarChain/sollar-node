@@ -6,9 +6,9 @@ const storj = require(global.PATH.mainDir + "/modules/instanceStorage");
 const DApp = require(global.PATH.mainDir + "/app/DApp");
 
 const fs = require('fs-extra');
-const MainContract = fs.readFileSync(`${global.PATH.mainDir}/project/sollar/contract.js`).toString();
-const SecondContract = fs.readFileSync(`${global.PATH.mainDir}/project/sollar/contract2.js`).toString();
-const SiteRegisterTemplate = fs.readFileSync(`${global.PATH.mainDir}/project/sollar/templates/SiteContract.js`).toString();
+const MainContract = fs.readFileSync(`${global.PATH.mainDir}/sollar/contract.js`).toString();
+const SecondContract = fs.readFileSync(`${global.PATH.mainDir}/sollar/contract2.js`).toString();
+const SiteRegisterTemplate = fs.readFileSync(`${global.PATH.mainDir}/sollar/templates/SiteContract.js`).toString();
 
 const TokenContractConnector = require(global.PATH.mainDir + '/modules/smartContracts/connectors/TokenContractConnector');
 
@@ -36,6 +36,30 @@ class App extends DApp {
         return this.contracts.ecmaPromise.deployContract(contractCodeOrBlock, resourceRent, cb, contractOwner, ...other);
     }
 
+    async setNodeIsOnline() {
+        try {
+            const masterContract = this.getMasterContractAddress() || 1;
+            if (await this.contractExists(masterContract)) {
+                const isNodeInValidatorsList = await this.callMethodRollback(masterContract, 'checkIsNodeInValidators', [this.BlockchainPublicKey]);
+                if (!isNodeInValidatorsList) {
+                    console.log('Node not in validators list');
+                    return;
+                }
+                const nodeIsOnline = await this.callMethodRollback(masterContract, 'checkNodeIsOnline', [this.BlockchainPublicKey]);
+                if (!nodeIsOnline) {
+                    return this.deployMethod(masterContract, 'setNodeIsOnline', [this.BlockchainPublicKey]);
+                }
+            }
+        } catch (e) {
+            console.log('Error when set node status to online', e);
+        }
+    }
+
+    async setNodeIsOffline(address) {
+        const masterContract = this.getMasterContractAddress() || 1;
+        return this.deployMethod(masterContract, 'setNodeIsOffline', [address]);
+    }
+
     async checkIsEmptyValidators() {
         const masterContractAddress = this.getMasterContractAddress() || 1;
         const nodeForValidating = await this.callMethodRollback(masterContractAddress, 'getNodeForValidating', [], {});
@@ -46,41 +70,73 @@ class App extends DApp {
         return false;
     }
 
+    handlers = {};
+
+    pingNode(key, reciever, cb) {
+        this.handlers[key] = {cb, isPong: false};
+        const message = this.messaging.starwave.createMessage(key, reciever, undefined, `ping`);
+        this.messaging.starwave.sendMessage(message);
+
+        setTimeout(() => {
+            const handler = this.handlers[key];
+            if (handler) {
+                if (!handler.isPong) {
+                    handler.cb(false);
+                }
+            }
+        }, 5000)
+    }
+
     async validateOrSendToRandomNode(message) {
+        console.log('Сообщение от', message.sender, 'тип:', message.id, 'данные:', message.data);
         const contractAddress = message.contractAddress;
         const masterContractAddress = this.getMasterContractAddress() || 1;
 
         const isNodeInValidatorsList = await this.callMethodRollback(masterContractAddress, 'checkIsNodeInValidators', [this.BlockchainPublicKey], {});
         if (!isNodeInValidatorsList) {
-            const randomNode = await this.callMethodRollback(masterContractAddress, 'getNodeInValidatorsList', [this.BlockchainPublicKey]);
-            if (randomNode) {
-                const nodeData = JSON.parse(randomNode);
-                message['reciver'] = nodeData.address;
-                this.messaging.starwave.sendMessage(message);
-            }
+            // const randomNode = await this.callMethodRollback(masterContractAddress, 'getNodeInValidatorsList', [this.BlockchainPublicKey]);
+            // if (randomNode) {
+            //     const nodeData = JSON.parse(randomNode);
+            //     message['reciver'] = nodeData.address;
+            //     this.messaging.starwave.sendMessage(message);
+            // }
             return;
         }
 
         const isNodeCanValidate = await this.callMethodRollback(masterContractAddress, 'checkIsNodeCanValidate', [this.BlockchainPublicKey], {});
         if (isNodeCanValidate) {
             await this.deployMethod(contractAddress, message.id, message.data, {sender: message.sender});
-            console.log('Deployed');
             await this.checkIsEmptyValidators();
         } else {
             const nodeForValidating = await this.callMethodRollback(masterContractAddress, 'getNodeForValidating', [], {});
             if (!nodeForValidating) {
                 await this.deployMethod(masterContractAddress, 'resetNodes', [], {});
-                return this.validateOrSendToRandomNode(message);
+                return setImmediate(() => this.validateOrSendToRandomNode(message));
             }
 
             const nodeData = JSON.parse(nodeForValidating);
             if (nodeData.address === this.BlockchainPublicKey) {
-                return this.validateOrSendToRandomNode(message);
+                return setImmediate(() => this.validateOrSendToRandomNode(message));
             }
 
             message['reciver'] = nodeData.address;
-            console.log('send to node', {data: message.data, reciver: message.reciver, sender: message.sender, id: message.id});
-            this.messaging.starwave.sendMessage(message);
+
+            this.pingNode(`${message.sender}-${message.reciver}-${new Date().getTime()}`, message.reciver, async (isPong, isNodeCanValidate) => {
+                if (isPong) {
+                    if (isNodeCanValidate) {
+                        console.log('Не могу задеплоить сообщение, переадресовываю', nodeData.address);
+                        this.messaging.starwave.sendMessage(message);
+                    } else {
+                        console.log('Выбранная нода не может сейчас завалидировать')
+                        setImmediate(() => this.validateOrSendToRandomNode(message));
+                    }
+                } else {
+                    console.log('Нода не отвечает', message.reciver);
+                    await this.setNodeIsOffline(message.reciver);
+                    await this.checkIsEmptyValidators();
+                    setImmediate(() => this.validateOrSendToRandomNode(message));
+                }
+            })
         }
     }
 
@@ -126,6 +182,22 @@ class App extends DApp {
         }
 
         await this.loadContractsIds();
+        setInterval(async () => await this.setNodeIsOnline(), 5 * 1000);
+
+        this.messaging.starwave.registerMessageHandler('ping', async (message) => {
+            const masterContractAddress = this.getMasterContractAddress() || 1;
+            const isNodeCanValidate = await this.callMethodRollback(masterContractAddress, 'checkIsNodeCanValidate', [this.BlockchainPublicKey], {});
+            const newMessage = this.messaging.starwave.createMessage({key: message.data, isNodeCanValidate}, message.sender, undefined, `pong`);
+            this.messaging.starwave.sendMessage(newMessage);
+        });
+
+        this.messaging.starwave.registerMessageHandler('pong', async (message) => {
+            const handler = this.handlers[message.data?.key];
+            if (handler) {
+                handler.cb(true, message.data?.isNodeCanValidate);
+                handler.isPong = true;
+            }
+        });
 
         /**/
 
@@ -141,7 +213,7 @@ class App extends DApp {
         });
 
         this.messaging.starwave.registerMessageHandler('addNodeToWhiteList', async (message) => {
-            this.validateOrSendToRandomNode(message);
+            return setImmediate(() => this.validateOrSendToRandomNode(message));
         });
 
         /**
@@ -212,7 +284,7 @@ class App extends DApp {
             // const sender = req.body.sender;
             const instance = await this.contracts.ecmaContract.getContractInstanceByAddressAsync(masterContractAddress);
             const sender = instance.info.address.fee
-            
+
             const data = await this.deployMethod(masterContractAddress, 'payForRefferal', [referred, referral, sign], { sender });
             res.json({ data });
         });
@@ -244,7 +316,7 @@ class App extends DApp {
          **/
 
         this.messaging.starwave.registerMessageHandler('getFreeCoins', async (message) => {
-            this.validateOrSendToRandomNode(message);
+            return setImmediate(() => this.validateOrSendToRandomNode(message));
         });
 
         /**
@@ -252,14 +324,58 @@ class App extends DApp {
          **/
 
         this.messaging.starwave.registerMessageHandler('transferFromTo', async (message) => {
-            this.validateOrSendToRandomNode(message);
+            return setImmediate(() => this.validateOrSendToRandomNode(message));
         });
+
+
+        const registerTransfersEvent = (contractAddress, eventType, data, cb) => {
+            cb();
+
+            if (Date.now() - Number(data[5]) > 10000) {
+                return;
+            }
+
+            const body = data;
+            console.log('body', data[1], '-', data[2], data[3], '|', data[5]);
+            // data[5] = new Date().getTime();
+
+            const sendTo = [data[1], data[2]];
+
+            for (const reciever of sendTo) {
+                if (reciever != this.BlockchainPublicKey) {
+                    let message = this.messaging.starwave.createMessage(body, reciever, undefined, `transfers`);
+                    message.contractAddress = contractAddress;
+                    this.messaging.starwave.sendMessage(message);
+                }
+            }
+        }
+
+        for (const contractAddress of this.contractIds) {
+            this.ecmaContract.events.registerEventHandler(contractAddress, 'Transfer', registerTransfersEvent);
+            this.ecmaContract.events.registerEventHandler(contractAddress, 'TransferFeeEvent', registerTransfersEvent);
+            this.ecmaContract.events.registerEventHandler(contractAddress, 'ContractFeeEvent', registerTransfersEvent);
+        }
+
+        /**
+         * Balance
+         **/
+
+        this.network.rpc.registerPostHandler('/balance/:contractAddress', async (req, res) => {
+            const contractAddress = String(req.params.contractAddress);
+            const wallet = req.body.wallet;
+
+            const data = await this.callMethodRollback(contractAddress, 'balanceOf', [wallet], {});
+
+            res.json({ data });
+        });
+
+
 
         /**
          * Transaction history
          **/
 
-        this.network.rpc.registerPostHandler('/transfer-history/:contractAddress', async (req, res) => {
+         this.network.rpc.registerPostHandler('/transfer-history/:contractAddress', async (req, res) => {
             const contractAddress = req.params.contractAddress;
             const wallet = req.body.wallet;
             const limit = req.body.limit || 10;
@@ -295,41 +411,7 @@ class App extends DApp {
             })
         });
 
-        const registerTransfersEvent = (contractAddress, eventType, data, cb) => {
-            cb();
 
-            const body = data;
-            data[5] = new Date().getTime();
-
-            const sendTo = [data[1], data[2]];
-
-            for (const reciever of sendTo) {
-                if (reciever != this.BlockchainPublicKey) {
-                    let message = this.messaging.starwave.createMessage(body, reciever, undefined, `transfers`);
-                    message.contractAddress = contractAddress;
-                    this.messaging.starwave.sendMessage(message);
-                }
-            }
-        }
-
-        for (const contractAddress of this.contractIds) {
-            this.ecmaContract.events.registerEventHandler(contractAddress, 'Transfer', registerTransfersEvent);
-            this.ecmaContract.events.registerEventHandler(contractAddress, 'TransferFeeEvent', registerTransfersEvent);
-            this.ecmaContract.events.registerEventHandler(contractAddress, 'ContractFeeEvent', registerTransfersEvent);
-        }
-
-        /**
-         * Balance
-         **/
-
-        this.network.rpc.registerPostHandler('/balance/:contractAddress', async (req, res) => {
-            const contractAddress = String(req.params.contractAddress);
-            const wallet = req.body.wallet;
-
-            const data = await this.callMethodRollback(contractAddress, 'balanceOf', [wallet], {});
-
-            res.json({ data });
-        });
 
         /**
          * Search
@@ -417,7 +499,6 @@ class App extends DApp {
 
     jsonFormatResultFromDB(value) {
         let result = {};
-        console.log('value.event', value.event);
         switch (value.event) {
             case 'Transfer':
                 result = {

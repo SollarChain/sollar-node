@@ -1,0 +1,53 @@
+
+.sollar-logo-container {
+    margin: 100px auto;
+}
+
+.col-key {
+    width: 29%;
+}
+
+.col-value {
+    width: 71%;
+}
+
+.node-wallet,
+.publicKey {
+    font-weight: 600;
+}
+
+#my-wallet .mb-2 {
+    display: flex;
+}
+
+.my-wallet {
+    min-width: 1100px;
+}
+
+.loading{
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.loading:after {
+  
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: bottom;
+  -webkit-animation: ellipsis steps(4,end) 1400ms infinite;      
+  animation: ellipsis steps(4,end) 1400ms infinite;
+  content: "\2026"; 
+  width: 0px;
+}
+
+@keyframes ellipsis {
+  to {
+    width: 40px;    
+  }
+}
+
+@-webkit-keyframes ellipsis {
+  to {
+    width: 40px;    
+  }
+}
