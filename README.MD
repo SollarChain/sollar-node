@@ -2,7 +2,7 @@
 
 # Sollar node installation guide
 
-## CHOICE 1 - Easy instalation
+## Choice 1 - Easy instalation
 
 To get started, make sure you have software: Docker Engine
 <br>
@@ -20,7 +20,7 @@ Run next command to start node from Docker hub
 Next see "Node activation" section after CHOICE 2
 <br>
 
-## CHOICE 2 - Instalation from git repository
+## Choice 2 - Instalation from git repository
 
 To get started, make sure you have software: Git, Docker Engine
 
