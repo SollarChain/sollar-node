@@ -10,11 +10,11 @@ You should use sudo, root or docker group user
 <br><br>
 Make a folder for chain files data
 ```bash
-# mkdir runtime
+mkdir runtime
 ```
 Run next command to start node from Docker hub
 ```bash
-# docker run -ti -p 3017:3017 -p 6018:6018 --mount type=bind,source="$(pwd)"/runtime,target=/app/sollar/runtime --entrypoint ./run sollar/sollar-node:latest
+docker run -ti -p 3017:3017 -p 6018:6018 --mount type=bind,source="$(pwd)"/runtime,target=/app/sollar/runtime --entrypoint ./run sollar/sollar-node:latest
 ```
 <br>
 Next see "Node activation" section after CHOICE 2
@@ -29,7 +29,7 @@ To get started, make sure you have software: Git, Docker Engine
    <br><br>
    Use next command for cloning <br>
    ```bash
-   # git clone https://github.com/SollarChain/sollar-node.git sollar_blockchain
+   git clone https://github.com/SollarChain/sollar-node.git sollar_blockchain
    ```
    
 ### 2. To starting node
@@ -37,16 +37,16 @@ To get started, make sure you have software: Git, Docker Engine
    Your current directory should be the cloning directory sollar_blockchain<br><br>
    Use next command to build node<br>
    ```bash
-   # docker build -t docker-sollar-blockchain .
+   docker build -t docker-sollar-blockchain .
    ```
 #### Run node:
    Use next command to run node in the background mode
    ```bash
-   # docker run -it -dp 3017:3017 -p 6018:6018 docker-sollar-blockchain
+   docker run -it -dp 3017:3017 -p 6018:6018 docker-sollar-blockchain
    ```
    If you want to see log on the screen, use next command
    ```bash
-   # docker run -it -p 3017:3017 -p 6018:6018 docker-sollar-blockchain
+   docker run -it -p 3017:3017 -p 6018:6018 docker-sollar-blockchain
    ```
 ## Node activation
 Next you should activate node.<br>
