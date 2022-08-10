@@ -1315,6 +1315,11 @@ class EcmaContract {
                             }
 
                             state.block.fee = Number(fee);
+                            
+                            console.log('CALL METHOD:', address, method, args[1], method === 'addNodeToWhiteList' && args[1] === null);
+                            if (method === 'addNodeToWhiteList' && args[1] === null) {
+                                cb(new Error('Call addNodeToWhiteList with null args'));
+                            }
 
                             instance.vm.setState(state);
                             instance.vm.runContextMethod("updateExternalState");

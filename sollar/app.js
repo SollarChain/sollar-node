@@ -201,16 +201,16 @@ class App extends DApp {
 
         /**/
 
-        this.network.rpc.registerPostHandler('/node/add/', async (req, res) => {
-            const masterContractAddress = this.getMasterContractAddress() || 1;
-            const ownerWallet = req.body.wallet;
-            const recieverAddress = req.body.recieverAddress || this.getConfig().recieverAddress;
-            const sender = ownerWallet;
+        // this.network.rpc.registerPostHandler('/node/add/', async (req, res) => {
+        //     const masterContractAddress = this.getMasterContractAddress() || 1;
+        //     const ownerWallet = req.body.wallet;
+        //     const recieverAddress = req.body.recieverAddress || this.getConfig().recieverAddress;
+        //     const sender = ownerWallet;
 
-            const data = await this.deployMethod(masterContractAddress, 'addNodeToWhiteList', [ownerWallet, recieverAddress], { sender });
+        //     const data = await this.deployMethod(masterContractAddress, 'addNodeToWhiteList', [ownerWallet, recieverAddress], { sender });
 
-            res.json({ data });
-        });
+        //     res.json({ data });
+        // });
 
         this.messaging.starwave.registerMessageHandler('addNodeToWhiteList', async (message) => {
             return setImmediate(() => this.validateOrSendToRandomNode(message));

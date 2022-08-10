@@ -95,10 +95,34 @@
      }
 
      getNodesCount() {
-        return this._whiteListWallets.length;
+        let counts = 0;
+
+        for (const address of this._whiteListWallets) {
+            const wallet = this._whiteList[address];
+            if (wallet.isOnline) {
+                counts++;
+            }
+        }
+
+        return counts;
     }
 
-    
+    getNodesInfo() {
+        const nodes = [];
+
+        for (const address of this._whiteListWallets) {
+            const wallet = this._whiteList[address];
+
+            nodes.push({
+                address: wallet.address,
+                owner: wallet.owner,
+                isOnline: wallet.isOnline,
+            })
+        }
+
+        return JSON.stringify(nodes);
+    }
+
     disableNodeFromWhiteList() {
         const address = this._getSender();
 
@@ -199,6 +223,7 @@
 
     
     _setNodeIsValidated(nodeAddress = this._getSender()) {
+        assert.true(nodeAddress, 'Node address not enter');
         assert.true(this._whiteList[nodeAddress], 'Node not in whitelist');
         assert.false(this._checkWalletIsCanValidate(this._whiteList[nodeAddress], true), 'You can\'t validate');
 
@@ -313,6 +338,9 @@
     }
 
      _addNodeToWhiteList(ownerWallet, nodeWallet = this._getSender()) {
+        assert.true(ownerWallet, 'Owner wallet not enter');
+        assert.true(nodeWallet, 'Node wallet not enter');
+
         const validatorFee = this._sollarSettings['validatorFee'];
 
         const wallet = {
@@ -331,6 +359,9 @@
     }
 
      addNodeToWhiteList(ownerWallet, nodeWallet = this._getSender()) {
+        assert.true(ownerWallet, 'Owner wallet not enter');
+        assert.true(nodeWallet, 'Node wallet not enter');
+
         const validatorFee = this._sollarSettings['validatorFee'];
 
         console.log('add node to validators', ownerWallet, nodeWallet);
