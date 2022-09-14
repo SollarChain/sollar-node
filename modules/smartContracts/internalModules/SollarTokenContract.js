@@ -20,8 +20,7 @@ class SollarTokenContract extends TokenContract {
         super.init(initialEmission, mintable);
 
         this._sollarSettings = new BlockchainMap('sollarSettings');
-
-        this._contract = new KeyValue('_contract');
+        this._contract = new BlockchainMap('_contract');
 
         this._TransferEvent = new Event('Transfer', 'string', 'string', 'string', 'number', 'number', 'number');
         this._TransferFeeEvent = new Event('TransferFeeEvent', 'string', 'string', 'string', 'number', 'number', 'number');
@@ -40,6 +39,7 @@ class SollarTokenContract extends TokenContract {
         }
     }
     
+    // Temporary method
     getFreeCoins(wallet, amount) {
         this._transferFromTo(this.contract.owner, wallet, amount);
     }
@@ -53,10 +53,13 @@ class SollarTokenContract extends TokenContract {
         amount = Number(Number(amount).toFixed(8));
         assert.true(amount > 0, 'Invalid amount');
 
-        const fee = global.getState().block.fee || 0;
+        const fee = global.getState()?.block?.fee || 0;
 
         this._wallets.transfer(from, to, amount);
+
+        // for (let i = 0; i < 1000; i++) {
         this._TransferEvent.emit(this.contract.ticker, from, to, amount, fee, Date.now());
+        // }
     }
 
     balanceOf(address) {

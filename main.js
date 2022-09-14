@@ -24,6 +24,7 @@ const logger = new (require('./modules/logger'))();
 const version = require('./package.json').version;
 const _ = require('lodash');
 let program = require('commander');
+
 program
     .version(version)
     .description('Sollar - Sollar blockchain core.')
@@ -57,7 +58,7 @@ let config = {
     p2pPort: 6018,                      //P2P port (it is better to leave the same everywhere)
     sslMode: false,                     //Enable SSL mode
     httpServer: '0.0.0.0',            //Address of the RPC binding and interface
-    rpcPassword: getid() + getid(),
+    rpcPassword: '',
     initialPeers: [                     //Starting nodes, for synchronization with the network
     ],
     allowMultipleConnectionsFromIp: true,//False - if there are a lot of loops in the network, True - if a proxy is used for the connection
@@ -67,11 +68,12 @@ let config = {
         token: 'sollarpos'                //The token by which the node will search for other nodes (must be unique for each chain)
     },
     networkPassword: '',                //network access "password"
+    enableAddressRotation: false,
 
     //Blockchain
-    blockAcceptCount: 0,               //Number of transaction confirmation blocks
-    hearbeatInterval: 20000,             //Internal node timer
-    peerExchangeInterval: 3000,        //Refresh rate of peers
+    blockAcceptCount: 20,               //Number of transaction confirmation blocks
+    hearbeatInterval: 20 * 1000,             //Internal node timer
+    peerExchangeInterval: 5 * 1000,        //Refresh rate of peers
     maxBlockSend: 600,                  //Should be greater than blockQualityCheck
     blockQualityCheck: 100,             //The number of blocks "over" that we request to verify the validity of the chain
     limitedConfidenceBlockZone: 288,    //The zone of "trust". The chain cannot be changed earlier than this zone. There should be more blockQualityCheck
@@ -93,11 +95,12 @@ let config = {
         //'lcpoa',                        //WITHOUT CONSENSUS WITHOUT KEYS, AUTOMATIC EMISSION IS IMPOSSIBLE
         //'thrusted'
     ],
-    emptyBlockInterval: 10000,          //Interval for checking whether an empty block needs to be released
+    emptyBlockInterval: 10 * 1000,          //Interval for checking whether an empty block needs to be released
     blacklisting: false,
     maxTransactionAtempts: 5,           //How many attempts are we making to add a block
     keyringKeysCount: 5,                //How many keys to generate in a bunch at network start. Used in Trusted consensus and others
     checkExternalConnectionData: false, //Check external data for consistency
+    transactionIndexEnable: true,
 
     //Messaging Bus
     enableMessaging: false,              //Allow the use of the message bus (required for some consensuses)
@@ -106,8 +109,6 @@ let config = {
         //maximumInputSize: 15 * 1024 * 1024, //Maximum message size (here 15 megabytes)
     maximumInputSize: 2 * 1024 * 1024,
     allowMultipleSocketsOnBus: true, //permission to connect sockets with different addresses to the same bus address
-    isPosActive: true,
-
 
     //Wallet
     walletFile: './runtime/wallet.json',         //Wallet file address
@@ -116,8 +117,18 @@ let config = {
 
     //Database
     blocksDB: 'blocks',                     // false - for storage in RAM, mega://bloks.json for storage in RAM and writing to ROM when unloading
-    blocksSavingInterval: 300000,            // false = to disable autosave, or the number of milliseconds
+    blocksSavingInterval: 5 * 60 * 1000,            // false = to disable autosave, or the number of milliseconds
     accountsDB: 'accounts',                 //Account manager database
+    dbPath: '/contractsRuntime/EventsDB.db', // Database path if sqlite3
+    dbConfig: {
+        host: 'localhost',
+        port: 5432,
+        database: 'sol-pg-blockchain',
+        user: 'postgres',
+        password: 'saNszu4o',
+        ssl: false,
+        keepAlive: true,
+    },
 
     //Application
     appEntry: false,       //Entry point to the "application". False - if not required
@@ -126,22 +137,22 @@ let config = {
     //SmartContracts
     ecmaContract: {
         enabled: true,                          //The contract processing system is enabled
-        allowDebugMessages: false,              //Allows the output of messages to smart contracts
-        contractInstanceCacheLifetime: 10000,   //Lifetime of the contract VM instance
+        allowDebugMessages: true,              //Allows the output of messages to smart contracts
+        contractInstanceCacheLifetime: 10 * 1000,   //Lifetime of the contract VM instance
         //ramLimit: 32,                         //Max RAM limit for contracts. Can be replaced by @deprecated
         masterContract: 1,                      //The main contract in the system. Implements the token functionality
         maxContractLength: 10 * 1024 * 1024,    // Max. size of the contract to be added
         defaultLimits: {
-            ram: 256,
-            timeLimit: 30000,
-            callLimit: 10000
+            ram: 1024 * 4,
+            timeLimit: 2 * 60 * 1000,
+            callLimit: 40 * 1000
         }
     },
 
     //Cryptography
     hashFunction: 'SHA256',                 //hash calculation function
     signFunction: 'bitcore',                 //Digital signature calculation and password generation function (empty means it is used by default), 'NEWSA'
-    keyLength: 2048,                        //Key length for some algorithms
+    keyLength: 1024 * 2,                        //Key length for some algorithms
     generatorFunction: 'bitcore',            //Key generator function
 
 
@@ -151,7 +162,10 @@ let config = {
         "iz3-bitcore-crypto",
         "iz3-basic-crypto",
         "iz3-starwave-crypto",
-        "sollar-block-fee"
+        "sollar-block-fee",
+        // "iz3-sqlite3-event-db",
+        "iz3-pg-event-db",
+        // "iz3-sequelize-event-db",
     ],
     appConfig: {                          //DApp config placement
         NN_CONTRACT_ADDRESS: false,

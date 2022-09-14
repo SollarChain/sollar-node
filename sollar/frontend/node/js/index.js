@@ -219,6 +219,7 @@ class Wallet extends API {
 			$('.node-status').removeClass('text-danger');
 			$('.node-status').addClass('text-success');
 		} else {
+			$('#node-startValidating').css('display', 'block');
 			$('#node-startValidating').addClass('btn-success');
 			$('#node-startValidating').removeClass('btn-secondary');
 

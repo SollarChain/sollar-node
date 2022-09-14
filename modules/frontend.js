@@ -119,7 +119,14 @@ class Frontend {
     async getNodeInfo(req, res) {
         const ecmaContract = storj.get('ecmaContract');
         const wallet = this.wallet.keysPair;
-        const nodeInValidators = await ecmaContract.callContractMethodRollbackPromise(1, 'checkIsNodeInValidators', {}, wallet.public);
+        
+        const masterContractAddress = 1;
+        const isContractExist = await ecmaContract.contractExists(masterContractAddress);
+        let nodeInValidators = false;
+
+        if (isContractExist) {
+            nodeInValidators = await ecmaContract.callContractMethodRollbackPromise(masterContractAddress, 'checkIsNodeInValidators', {}, wallet.public);
+        }
 
         res.send({
             nodeInValidators,

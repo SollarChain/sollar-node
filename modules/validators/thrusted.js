@@ -218,8 +218,9 @@ function generateEmptyBlock() {
     let empty = new Signable();
     if(isReady()) {
         generateNextBlock(empty, function (generatedBlock) {
-            blockchain.addBlock(generatedBlock);
-            blockchain.broadcastLastBlock();
+            blockchain.addBlock(generatedBlock, () => {
+                blockchain.broadcastLastBlock();
+            })
         });
     }
 }
@@ -342,8 +343,9 @@ function handleMessage(message) {
              * Checking the Timestamp match in this case will reject the duplicated block.
              */
             generateNextBlock(message.data, function (generatedBlock) {
-                blockchain.addBlock(generatedBlock);
-                blockchain.broadcastLastBlock();
+                blockchain.addBlock(generatedBlock, () => {
+                    blockchain.broadcastLastBlock();
+                })
 
                 // console.log(message);
                 console.log('Block added for ' + message.recepient);

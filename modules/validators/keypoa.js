@@ -159,8 +159,9 @@ function generateEmptyBlock() {
     let empty = new Signable();
     if(isReady()) {
         generateNextBlock(empty, function (generatedBlock) {
-            blockchain.addBlock(generatedBlock);
-            blockchain.broadcastLastBlock();
+            blockchain.addBlock(generatedBlock, () => {
+                blockchain.broadcastLastBlock();
+            })
         });
     }
 }

@@ -397,10 +397,11 @@ function Blockchain(config) {
                 if(!config.validators[0].isValidHash(genesisBlock.hash)) {
                     logger.fatalFall('Invalid genesis hash: ' + genesisBlock.hash);
                 }
-                addBlockToChain(getGenesisBlock());
-                logger.info('New blockchain fork started');
-                setTimeout(startBlockchainServers, 1000);
-                cb();
+                addBlockToChain(getGenesisBlock(), undefined, () => {
+                    logger.info('New blockchain fork started');
+                    setTimeout(startBlockchainServers, 1000);
+                    cb();
+                });
             } else {
                 logger.info('Checking saved chain...');
                 let zeroBlock = {};
@@ -949,7 +950,7 @@ function Blockchain(config) {
                 blocks.push(blockData);
 
                 limiter++;
-                if(limiter > config.maxBlockSend) {
+                if(limiter > limit) {
                     break;
                 }
 
@@ -1134,6 +1135,7 @@ function Blockchain(config) {
          * @type {Block}
          */
         const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
+        const firstBlockReceived = receivedBlocks[0];
 
         getLatestBlock(async function (latestBlockHeld) {
             if(!latestBlockHeld) {
@@ -1157,7 +1159,10 @@ function Blockchain(config) {
                     return;
                 }
 
-                if(latestBlockReceived.index > latestBlockHeld.index || (blockHandler.keyring.length === 0 && latestBlockReceived.index < 5 && latestBlockReceived.index !== 0 && !config.isPosActive)) {
+                // console.log('Message 2 index', latestBlockReceived.index, latestBlockHeld.index);
+
+                if(latestBlockReceived.index > latestBlockHeld.index || 
+                    (blockHandler.keyring.length === 0 && latestBlockReceived.index < 5 && latestBlockReceived.index !== 0 && !storj.get('isPosActive'))) {
                     lastKnownBlock = latestBlockReceived.index;
                     if(receivedBlocks.length === 1) {
                         if(lastKnownBlock !== latestBlockReceived.index) {
@@ -1170,30 +1175,155 @@ function Blockchain(config) {
                             logger.info('Synchronize: Received ' + latestBlockHeld.index + ' of ' + latestBlockReceived.index);
                         }
                     }
-                    // console.log(latestBlockHeld.index, latestBlockReceived.index, latestBlockHeld.hash, latestBlockReceived.previousHash)
+                    
+                    // console.log('MESSAGE TYPE 2', latestBlockHeld.index, latestBlockReceived.index, latestBlockHeld.hash === latestBlockReceived.previousHash);
+
                     if(latestBlockHeld.hash === latestBlockReceived.previousHash /*&& latestBlockHeld.index > 5*/) { //when one block is received from the one we have
+                        const isValidBlocks = await isValidChain(receivedBlocks);
 
-                        if(await isValidChain(receivedBlocks) && (receivedBlocks[0].index <= maxBlock || receivedBlocks.length === 1)) {
-                            addBlockToChain(latestBlockReceived, true);
-                            responseLatestMsg(function (msg) {
+                        if (isValidBlocks) {
+                            if (storj.get('deployNow')) {
+                                return storj.put('chainResponseMutex', false);
+                            }
 
-                                clearTimeout(replaceChainTimer);
-                                replaceChainTimer = setTimeout(function () {
-                                    //If receiving chain, no syncing
-                                    if(storj.get('chainResponseMutex')) {
-                                        return;
-                                    }
-                                    blockHandler.resync();
-                                }, config.peerExchangeInterval + 2000); //2000 as additional time
+                            if (latestBlockReceived.index === maxBlock + 1) {
+                                console.log('Add block from 1 messages', latestBlockReceived.index);
+                                addBlockToChain(latestBlockReceived, false, () => {
+                                    storj.put('chainResponseMutex', false);
+                                })
+                            } else if (firstBlockReceived.index <= maxBlock || receivedBlocks.length === 1) {
+                                addBlockToChain(latestBlockReceived, false, () => {
+                                    responseLatestMsg(function (msg) {
+                                        clearTimeout(replaceChainTimer);
+                                        replaceChainTimer = setTimeout(function () {
+                                            //If receiving chain, no syncing
+                                            if(storj.get('chainResponseMutex')) {
+                                                return;
+                                            }
+                                            blockHandler.resync();
+                                        }, config.peerExchangeInterval + 2000); //2000 as additional time
 
+                                        storj.put('chainResponseMutex', false);
+                                        broadcast(msg);
+                                    });
+                                })
+                            } else {
                                 storj.put('chainResponseMutex', false);
-                                broadcast(msg);
-                            });
+                            }
+                        } else {
+                            storj.put('chainResponseMutex', false);
                         }
 
-                    } else if(receivedBlocks.length === 1 /*&& latestBlockHeld.index > 5*/) {
-                        //console.log('HERE');
+                        // if (isValidBlocks) {
+                        //     if (firstBlockReceived.index <= maxBlock || latestBlockReceived.index === maxBlock + 1 || receivedBlocks.length === 1) {
+                        //         console.log('Add block from messages', firstBlockReceived.index <= maxBlock, latestBlockReceived.index === maxBlock + 1, receivedBlocks.length === 1);
+                        //         addBlockToChain(latestBlockReceived, false, () => {
+                        //             storj.put('chainResponseMutex', false);
+                        //         })
+                        //     } else {
+                        //         storj.put('chainResponseMutex', false);
+                        //     }
+                        // } else {
+                        //     storj.put('chainResponseMutex', false);
+                        // }
 
+                        // if (isValidBlocks) {
+                        //     console.log('recieved blocks to', latestBlockReceived.index, maxBlock, '|', receivedBlocks.length);
+                        //     if (receivedBlocks.length === 1) {
+                        //         if (latestBlockReceived.index > maxBlock) {
+                        //             console.log('latestBlockReceived.index === maxBlock + 1', latestBlockReceived.index, maxBlock + 1);
+                        //             if (latestBlockReceived.index === maxBlock + 1) {
+                        //                 if(storj.get('chainResponseMutex')) {
+                        //                     storj.put('chainResponseMutex', false);
+                        //                     return;
+                        //                 }
+
+                        //                 if (storj.get('deployCalling') > 0) {
+                        //                     storj.put('chainResponseMutex', false);
+                        //                     return;
+                        //                 }
+    
+                        //                 getLatestBlock((previousBlock) => {
+                        //                     if (latestBlockReceived.previousHash === previousBlock.hash) {
+                        //                         addBlockToChain(latestBlockReceived, false, () => {
+                        //                             // responseLatestMsg(function (msg) {
+                        //                                 storj.put('chainResponseMutex', false);
+                        //                                 // broadcast(msg);
+                        //                             // })
+                        //                         })
+                        //                     } else {
+                        //                         storj.put('chainResponseMutex', false);
+                        //                     }
+                        //                 })
+                        //             } else {
+                        //                 addBlockToChain(latestBlockReceived, false, () => {
+                        //                     // responseLatestMsg(function (msg) {
+                        //                         storj.put('chainResponseMutex', false);
+                        //                         // broadcast(msg);
+                        //                     // })
+                        //                 })
+                        //             }
+                        //         } else {
+                        //             addBlockToChain(latestBlockReceived, true);
+                        //             // responseLatestMsg(function (msg) {
+                        //                 storj.put('chainResponseMutex', false);
+                        //             //     broadcast(msg);
+                        //             // })
+                        //         }
+                        //     } else if (receivedBlocks[0].index <= maxBlock) {
+                        //         addBlockToChain(latestBlockReceived, true);
+                        //         responseLatestMsg(function (msg) {
+                        //             storj.put('chainResponseMutex', false);
+                        //             broadcast(msg);
+                        //         })
+                        //     } else {
+                        //         storj.put('chainResponseMutex', false);
+                        //     }
+                        // }
+
+                        // if(isValidBlocks && (receivedBlocks[0].index <= maxBlock || receivedBlocks.length === 1)) {
+                        //     console.log('recieved blocks to', receivedBlocks[0].index, maxBlock, '|', receivedBlocks.length);
+                        //     addBlockToChain(latestBlockReceived, false);
+                        //     responseLatestMsg(function (msg) {
+
+                        //     //     clearTimeout(replaceChainTimer);
+                        //     //     // replaceChainTimer = setTimeout(function () {
+                        //     //     //     //If receiving chain, no syncing
+                        //     //     //     if(storj.get('chainResponseMutex')) {
+                        //     //     //         return;
+                        //     //     //     }
+
+                        //     //     //     if (storj.get('deployCalling') > 0) {
+                        //     //     //         return;
+                        //     //     //     }
+
+                        //     //     //     console.log('CHECK HASH isPosAdding', storj.get('isPosAdding'));
+                        //     //     //     if (storj.get('isPosAdding')) {
+                        //     //     //         return;
+                        //     //     //     }
+                                    
+                        //     //     //     // blockHandler.resync();
+                        //     //     // }, config.peerExchangeInterval + 2000); //2000 as additional time
+
+                        //         storj.put('chainResponseMutex', false);
+                        //         broadcast(msg);
+                        //     });
+                        // }
+
+                    } else if (receivedBlocks.length === 1 && latestBlockReceived.index === maxBlock + 1) {
+                        if (storj.get('deployNow')) {
+                            return storj.put('chainResponseMutex', false);
+                        }
+
+                        console.log('Add block from 2 messages', latestBlockReceived.index);
+                        addBlockToChain(latestBlockReceived, false, () => {
+                            storj.put('chainResponseMutex', false);
+                        })
+                    } else if(receivedBlocks.length === 1 /*&& latestBlockHeld.index > 5*/) {
+                        if (storj.get('deployNow')) {
+                            return storj.put('chainResponseMutex', false);
+                        }
+                        //console.log('HERE');
                         let getBlockFrom = latestBlockReceived.index;
 
                         if(getBlockFrom < 0 || maxBlock == 0) {
@@ -1203,21 +1333,34 @@ function Blockchain(config) {
                         }
 
                         if(!blockHandler.syncInProgress) {
-                            console.log('sync', getBlockFrom, config.maxBlockSend);
+                            console.log('sync', getBlockFrom, config.maxBlockSend, latestBlockReceived.index);
+                            // broadcast(queryAllMsg(getBlockFrom, config.maxBlockSend));
                             broadcast(queryAllMsg(getBlockFrom, config.maxBlockSend));
                         }
 
                         storj.put('chainResponseMutex', false);
 
                     } else {
-                        console.log('receivedBlocks[0].index', receivedBlocks[0].index, maxBlock + 1, receivedBlocks.length);
-                        if(receivedBlocks[0].index <= maxBlock + 1 && receivedBlocks.length > 1) {
+                        if (storj.get('deployNow')) {
+                            return storj.put('chainResponseMutex', false);
+                        }
+
+                        // console.log('latestBlockReceived', latestBlockReceived.index, maxBlock, receivedBlocks.length);
+                        if (receivedBlocks.length > 1 && latestBlockReceived.index > maxBlock) {
                             replaceChain(receivedBlocks, function () {
                                 storj.put('chainResponseMutex', false);
                             });
                         } else {
                             storj.put('chainResponseMutex', false);
                         }
+
+                        // if(firstBlockReceived.index <= maxBlock && receivedBlocks.length > 1) {
+                        //     replaceChain(receivedBlocks, function () {
+                        //         storj.put('chainResponseMutex', false);
+                        //     });
+                        // } else {
+                        //     storj.put('chainResponseMutex', false);
+                        // }
 
 
                     }
@@ -1326,6 +1469,7 @@ function Blockchain(config) {
                             if(storj.get('chainResponseMutex')) {
                                 return;
                             }
+
                             blockHandler.resync();
                         }, config.peerExchangeInterval + 2000); //2000 в качестве доп времени
 
@@ -1791,9 +1935,10 @@ function Blockchain(config) {
             keyring.generateKeys(config.workDir + '/keyringKeys.json', config.keyringKeysCount, wallet);
             transactor.transact(keyring, function (blockData, cb) {
                 config.validators[0].generateNextBlock(blockData, function (generatedBlock) {
-                    addBlock(generatedBlock);
-                    broadcastLastBlock();
-                    cb(generatedBlock);
+                    addBlock(generatedBlock, () => {
+                        broadcastLastBlock();
+                        cb(generatedBlock);
+                    })
                 });
             }, function () {
                 console.log('Keyring: Keyring accepted');

@@ -91,7 +91,7 @@ class SollarToken extends SollarMasterTokenContract {
         this._referrals = new BlockchainArray('Referrals');
         this._paysForRegisterOnSite = new BlockchainMap('paysForRegisterOnSite');
 
-        this._ClaimRewardEvent = new Event('ClaimRewardEvent', 'string', 'string', 'number');
+        // this._ClaimRewardEvent = new Event('ClaimRewardEvent', 'string', 'string', 'number');
 
         if (contracts.isDeploy()) {
             this._transferFromTo(this.contract.owner, this.contract.address.fee, 10000);
@@ -144,31 +144,31 @@ class SollarToken extends SollarMasterTokenContract {
     }
 
     // TODO del
-    claimReward(wallet, claim_id, amount, sign) {
-        if (typeof claim_id === 'number') {
-            claim_id = String(claim_id);
-        }
+    // claimReward(wallet, claim_id, amount, sign) {
+    //     if (typeof claim_id === 'number') {
+    //         claim_id = String(claim_id);
+    //     }
 
-        const signText = `${wallet}-${claim_id}-${this.contract.backend}`;
+    //     const signText = `${wallet}-${claim_id}-${this.contract.backend}`;
         
-        assert.true(global.crypto.verifySign(signText, sign, this.contract.backend), 'Invalid validate sign');
+    //     assert.true(global.crypto.verifySign(signText, sign, this.contract.backend), 'Invalid validate sign');
 
-        const reward = this._rewards[claim_id] || {};
+    //     const reward = this._rewards[claim_id] || {};
 
-        assert.false(reward[wallet], 'Already claimed');
+    //     assert.false(reward[wallet], 'Already claimed');
 
-        const userReward = {
-            wallet,
-            amount
-        };
+    //     const userReward = {
+    //         wallet,
+    //         amount
+    //     };
 
-        this._wallets.mint(wallet, new BigNumber(amount));
-        this._ClaimRewardEvent.emit(claim_id, wallet, amount);
+    //     this._wallets.mint(wallet, new BigNumber(amount));
+    //     this._ClaimRewardEvent.emit(claim_id, wallet, amount);
 
-        reward[wallet] = userReward;
+    //     reward[wallet] = userReward;
 
-        this._rewards[claim_id] = reward;
-    }
+    //     this._rewards[claim_id] = reward;
+    // }
 }
 
 global.registerContract(SollarToken);

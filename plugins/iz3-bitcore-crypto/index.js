@@ -46,7 +46,7 @@ function public2address(pub) {
  * @return {string}
  */
 function address2pubic(add) {
-    if(add.indexOf(ADDRESS_PREFIX) !== 0) {
+    if(!add.startsWith(ADDRESS_PREFIX)) {
         throw new Error('Invalid address');
     }
 
@@ -64,11 +64,23 @@ function validate(data, sign, publicKey) {
     publicKey = address2pubic(String(publicKey));
     data = String(data);
     sign = String(sign);
+
     try {
-        return new Message(data).verify(publicKey, sign);
+        const message = new Message(data);
+        return message.verify(publicKey, sign);
     } catch (e) {
+        // console.log('BITCORE VALIDATE ERROR', data, sign, publicKey, e);
         return false;
     }
+}
+
+function validateWithThrow(data, sign, publicKey) {
+    publicKey = address2pubic(String(publicKey));
+    data = String(data);
+    sign = String(sign);
+
+    const message = new Message(data);
+    return message.verify(publicKey, sign);
 }
 
 /**
@@ -77,14 +89,27 @@ function validate(data, sign, publicKey) {
  * @param privateKeyData
  * @return {string}
  */
-function sign(data, privateKeyData) {
+function sign(data, privateKeyData, counts=0) {
     privateKeyData = String(privateKeyData);
     data = String(data);
 
-    let privateKey = new bitcore.PrivateKey(privateKeyData);
-    let message = new Message(data);
+    const privateKey = new bitcore.PrivateKey(privateKeyData);
+    const message = new Message(data);
+    const messageSign = message.sign(privateKey).toString();
 
-    return message.sign(privateKey).toString();
+    const publicAddress = privateKey.toPublicKey().toAddress().toString();
+
+    try {
+        validateWithThrow(data, messageSign, public2address(publicAddress));
+    } catch (e) {
+        if (counts < 1000) {
+            return sign(data, privateKeyData, counts+1);
+        } else {
+            throw new Error('Unknown sign error ' + e)
+        }
+    }
+
+    return messageSign;
 }
 
 /**
@@ -107,6 +132,33 @@ function generateWallet(config) {
         }
     }
 }
+
+// async function sleep(time) {
+//     return new Promise(resolve => {
+//         setTimeout(resolve, time||100)
+//     })
+// }
+
+// async function app() {
+//     const wallet = generateWallet();
+//     console.log('wallet', wallet);
+//     for (let i = 0; i < 1000; i++) {
+//         const signText = new Date().getTime().toString();
+//         // console.log('sign', signText);
+//         const signed = sign(signText, wallet.keysPair.private);
+//         // console.log('validate', signed, signed.length);
+//         const isVerify = validate(signText, signed, wallet.keysPair.public);
+//         if (!isVerify) {
+//             console.log('Error ?');
+//             break;
+//         }
+//         // break;
+//     }
+
+//     console.log('end');
+// }
+
+// app();
 
 module.exports = function register(blockchain, config, storj,) {
     logger.info('Initialize...');

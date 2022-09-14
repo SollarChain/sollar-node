@@ -5,11 +5,8 @@
  */
 
 
-const sqlite3 = require('sqlite3').verbose();
 const logger = new (require('../logger'))('ContractEvents');
 const storj = require('../instanceStorage');
-const utils = require('../utils');
-const BigNumber = require('bignumber.js');
 
 /**
  * Events index database
@@ -36,69 +33,8 @@ class EventsDB {
      * @param cb
      */
     initialize(cb) {
-        let that = this;
-
-        this.db = new sqlite3.Database(''/*this.path*/, function () {
-            /**
-             * BigNumber sum
-             */
-            (function () {
-                let sum = new BigNumber(0);
-                try {
-                    that.db.registerAggregateFunction('bsum', function (value) {
-                        if (!value) {
-                            let returnVal = sum.toFixed();
-                            sum = new BigNumber(0);
-                            return returnVal;
-                        }
-
-                        value = new BigNumber(value);
-                        if (!value.isNaN()) {
-                            sum = sum.plus(value);
-                        }
-                    });
-                } catch (e) {
-                    logger.warning('Aggregate functions unsupported for current SQLite3 module')
-                }
-            })();
-
-            function contiune() {
-                //Create events table
-                that.db.exec("CREATE TABLE IF NOT EXISTS `events` (\n" +
-                    "\t`id`\tINTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n" +
-                    "\t`event`\tTEXT NOT NULL,\n" +
-                    "\t`contract`\tTEXT NOT NULL,\n" +
-                    "\t`timestamp`\tTEXT,\n" +
-                    "\t`block`\tINTEGER,\n" +
-                    "\t`hash`\tTEXT,\n" +
-                    "\t`v1`\tTEXT,\n" +
-                    "\t`v2`\tTEXT,\n" +
-                    "\t`v3`\tTEXT,\n" +
-                    "\t`v4`\tTEXT,\n" +
-                    "\t`v5`\tTEXT,\n" +
-                    "\t`v6`\tTEXT,\n" +
-                    "\t`v7`\tTEXT,\n" +
-                    "\t`v8`\tTEXT,\n" +
-                    "\t`v9`\tTEXT,\n" +
-                    "\t`v10`\tTEXT\n" +
-                    ");", function (err) {
-                    cb(err);
-                });
-            }
-
-            that.db.exec(`ATTACH DATABASE "${that.path}" AS flush_db; DROP TABLE IF EXISTS main.\`events\`; CREATE TABLE main.\`events\` AS SELECT * FROM flush_db.\`events\`; DETACH DATABASE flush_db;`, function (err) {
-
-                //If database loaded with error, DEATACH IT
-                if (err) {
-                    that.db.exec("DETACH DATABASE flush_db;", function (err) {
-                        contiune();
-                    });
-                } else {
-                    contiune();
-                }
-            });
-        });
-
+        const DefaultDB = storj.get('DefaultDB');
+        this.db = new DefaultDB(this.path, cb);
     }
 
     /**
@@ -110,17 +46,8 @@ class EventsDB {
             cb(null);
             return;
         }
-        let that = this;
-        this.db.exec(`ATTACH DATABASE "${this.path}" AS flush_db; DROP TABLE IF EXISTS flush_db.\`events\`; CREATE TABLE flush_db.\`events\` AS SELECT * FROM main.\`events\`; DETACH DATABASE flush_db;`, function (err) {
-            //If database loaded with error, DEATACH IT
-            if (err) {
-                that.db.exec("DETACH DATABASE flush_db;", function (err2) {
-                    cb(err);
-                });
-            } else {
-                cb(err);
-            }
-        });
+
+        this.db.flush(cb);
     }
 
     /**
@@ -130,7 +57,10 @@ class EventsDB {
      * @private
      */
     _handleBlockReplay(blockIndex, cb) {
-        this.db.run('DELETE FROM `events` WHERE block >= ' + blockIndex, function (err) {
+        this.db.run(`
+            DELETE FROM "events" 
+            WHERE block >= ${blockIndex}
+        `, (err) => {
             cb(err);
         });
     }
@@ -162,7 +92,11 @@ class EventsDB {
      * @param cb
      */
     rollback(contract, block, cb) {
-        this.db.run('DELETE FROM `events` WHERE block = ' + block + ' AND contract = "' + contract + '"', function (err) {
+        this.db.run(`
+            DELETE FROM "events" 
+            WHERE block = ${block} 
+            AND contract = '${contract}'
+        `, function (err) {
             cb(err);
         });
     }
@@ -175,8 +109,6 @@ class EventsDB {
      * @param cb
      */
     async deploy(contract, block, cb) {
-        let that = this;
-
         function dbRowToParamsArray(row) {
             let params = [];
             params.push(row.v1);
@@ -192,14 +124,17 @@ class EventsDB {
             return params;
         }
 
-        this.db.all('SELECT * FROM `events` WHERE block = ' + block + ' AND contract = "' + contract + '"', async function (err, values) {
+        this.db.all(`
+            SELECT * FROM "events" 
+            WHERE block = ${block} AND contract = '${contract}'
+        `, async (err, values) => {
             if (err) {
                 cb(err);
             } else {
                 for (let a in values) {
                     if (values.hasOwnProperty(a)) {
-                        await (new Promise(function (resolve) {
-                            that._handleEvent(contract, values[a].event, dbRowToParamsArray(values[a]), function () {
+                        await (new Promise(resolve => {
+                            this._handleEvent(contract, values[a].event, dbRowToParamsArray(values[a]), function () {
                                 resolve();
                             })
                         }));
@@ -225,25 +160,55 @@ class EventsDB {
         for (let i = params.length + 1; i <= 10; i++) {
             params.push(null);
         }
+
+        const v1 = params[0];
+        const v2 = params[1];
+        const v3 = params[2];
+        const v4 = params[3];
+        const v5 = params[4];
+        const v6 = params[5];
+        const v7 = params[6];
+        const v8 = params[7];
+        const v9 = params[8];
+        const v10 = params[9];
         
-        params.push(event);
-        params.push(contract);
-        params.push(block.timestamp);
-        params.push(block.index);
-        params.push(block.hash);
+        this.db.run(`
+            INSERT INTO "events" (
+                "v1", "v2", "v3",
+                "v4", "v5", "v6",
+                "v7", "v8", "v9",
+                "v10", 
+                "event",
+                "contract",
+                "timestamp", 
+                "block", 
+                "hash"
+            ) VALUES (
+                '${v1}', '${v2}', '${v3}',
+                '${v4}', '${v5}', '${v6}',
+                '${v7}', '${v8}', '${v9}',
+                '${v10}', 
+                '${event}',
+                ${contract},
+                '${block.timestamp}',
+                ${block.index},
+                '${block.hash}'
+            )
+        `, (err) => {
+            cb(err);
+        })
 
-        let statement = this.db.prepare("INSERT INTO `events` (`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`v7`,`v8`,`v9`,`v10`,`event`,`contract`, `timestamp`, `block`, `hash`) " +
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", params, function (err) {
-            if (err) {
-                cb(err);
-                return;
-            }
-            statement.run([], function (err) {
-                cb(err);
-            })
+        // let statement = this.db.prepare("INSERT INTO `events` (`v1`,`v2`,`v3`,`v4`,`v5`,`v6`,`v7`,`v8`,`v9`,`v10`,`event`,`contract`, `timestamp`, `block`, `hash`) " +
+        //     "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", params, function (err) {
+        //     if (err) {
+        //         cb(err);
+        //         return;
+        //     }
 
-        });
-
+        //     statement.run([], function (err) {
+        //         cb(err);
+        //     });
+        // });
     }
 
 
@@ -259,11 +224,22 @@ class EventsDB {
         options.toBlock = !options.toBlock ? 0xFFFFFFFFFF : options.toBlock;
         options.additionalStatement = !options.additionalStatement ? '' : options.additionalStatement;
 
-        let statement = this.db.prepare("SELECT * FROM `events` WHERE block <= ? AND block >= ? AND event = ? AND contract = ? " + options.additionalStatement, [options.toBlock, options.fromBlock, event, contract], function () {
-            statement.all([], function (err, values) {
-                cb(err, values);
-            })
-        });
+        this.db.all(`
+            SELECT * FROM "events"
+            WHERE "block" <= ${options.toBlock}
+            AND "block" >= ${options.fromBlock}
+            AND "event" = '${event}'
+            AND "contract" = '${contract}'
+            ${options.additionalStatement}
+        `, (err, values) => {
+            cb(err, values);
+        })
+
+        // let statement = this.db.prepare("SELECT * FROM `events` WHERE block <= ? AND block >= ? AND event = ? AND contract = ? " + options.additionalStatement, [options.toBlock, options.fromBlock, event, contract], function () {
+        //     statement.all([], function (err, values) {
+        //         cb(err, values);
+        //     })
+        // });
     }
 
     /**
@@ -279,12 +255,22 @@ class EventsDB {
         options.toBlock = !options.toBlock ? 0xFFFFFFFFFF : options.toBlock;
         options.additionalStatement = !options.additionalStatement ? '' : options.additionalStatement;
 
+        this.db.all(`
+            SELECT bsum(v${fieldNo}) as sum FROM "events"
+            WHERE "block" <= ${options.toBlock}
+            AND "block" => ${options.fromBlock}
+            AND "event" = '${event}'
+            AND "contract" = '${contract}'
+            ${options.additionalStatement}
+        `, (err, values) => {
+            cb(err, values);
+        })
 
-        let statement = this.db.prepare(`SELECT bsum(v${fieldNo}) as sum FROM \`events\` WHERE block <= ? AND block >= ? AND event = ? AND contract = ? ` + options.additionalStatement, [options.toBlock, options.fromBlock, event, contract], function () {
-            statement.all([], function (err, values) {
-                cb(err, values);
-            })
-        });
+        // let statement = this.db.prepare(`SELECT bsum(v${fieldNo}) as sum FROM "events" WHERE block <= ? AND block >= ? AND event = ? AND contract = ? ` + options.additionalStatement, [options.toBlock, options.fromBlock, event, contract], function () {
+        //     statement.all([], function (err, values) {
+        //         cb(err, values);
+        //     })
+        // });
     }
 
     /**
@@ -293,18 +279,21 @@ class EventsDB {
      * @param {array} bindParams
      * @param {function} cb
      */
-    rawQuery(query, bindParams, cb) {
-        let statement;
-
-        if (bindParams) {
-            statement = this.db.prepare(query, bindParams);
-        } else {
-            statement = this.db.prepare(query, []);
-        }
-
-        statement.all([], function (err, values) {
+    rawQuery(query, cb) {
+        this.db.all(query, (err, values) => {
             cb(err, values);
-        })
+        });
+        // let statement;
+
+        // if (bindParams) {
+        //     statement = this.db.prepare(query, bindParams);
+        // } else {
+        //     statement = this.db.prepare(query, []);
+        // }
+
+        // statement.all([], function (err, values) {
+        //     cb(err, values);
+        // })
     }
 
     /**

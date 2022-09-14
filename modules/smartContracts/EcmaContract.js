@@ -63,7 +63,7 @@ const METHODS_WITHOUT_FEE = [
     'claimReward',
     'siteAuthorization',
     // 'payForRefferal',
-    'resetNodes',
+    // 'resetNodes',
     'setNodeIsOnline',
     'setNodeIsOffline',
 ];
@@ -105,15 +105,6 @@ class EcmaContract {
         }
 
         /**
-         * Events indenxing
-         */
-        this.events = new EventsDB(/*that.config.workDir +*/ '/contractsRuntime/EventsDB.db');
-        this.events.initialize(function () {
-            logger.info('Initialized');
-            that.ready = true;
-        });
-
-        /**
          * Waiting for deploy instances
          * @type {Array}
          * @private
@@ -153,29 +144,37 @@ class EcmaContract {
          */
         this.blockHandler = storj.get('blockHandler');
 
-        this.blockHandler.registerBlockHandler(EcmaContractDeployBlock.blockType, function (blockData, block, callback) {
-            that.events._handleBlockReplay(block.index, function () {
-                that._handleBlock(blockData, block, false, () => {
-                    callback();
-                    that._lastKnownBlock = block.index;
+        /**
+         * Events indenxing
+         */
+        this.events = new EventsDB(that.config.dbPath);
+        this.events.initialize(() => {
+            logger.info('Initialized');
+            that.ready = true;
+
+            this.blockHandler.registerBlockHandler(EcmaContractDeployBlock.blockType, function (blockData, block, callback) {
+                that.events._handleBlockReplay(block.index, function () {
+                    that._handleBlock(blockData, block, false, () => {
+                        callback();
+                        that._lastKnownBlock = block.index;
+                    });
                 });
             });
-        });
-
-        this.blockHandler.registerBlockHandler(EcmaContractCallBlock.blockType, function (blockData, block, callback) {
-            that.events._handleBlockReplay(block.index, function () {
-                that._handleBlock(blockData, block, false, () => {
-                    callback();
-                    that._lastKnownBlock = block.index;
+    
+            this.blockHandler.registerBlockHandler(EcmaContractCallBlock.blockType, function (blockData, block, callback) {
+                that.events._handleBlockReplay(block.index, function () {
+                    that._handleBlock(blockData, block, false, () => {
+                        callback();
+                        that._lastKnownBlock = block.index;
+                    });
                 });
             });
+
+            storj.put('ecmaContract', this);
+            logger.info('Loading environment...');
+
+            this._registerRPCMethods();
         });
-
-
-        storj.put('ecmaContract', this);
-        logger.info('Loading environment...');
-
-        this._registerRPCMethods();
     }
 
     /**
@@ -266,14 +265,14 @@ class EcmaContract {
     createContractInstance(address, code, state, cb) {
         let that = this;
 
-        function createInstance(limits) {
+        function createInstance(limits, counts=0) {
             let contractInfo = {};
             let vm = new VM({
                 ramLimit: limits.ram,
                 logging: that.config.ecmaContract.allowDebugMessages,
                 logPrefix: 'Contract ' + address + ': ',
             });
-            let db = new TransactionalKeyValue(/*that.config.workDir +*/ 'contractsRuntime/' + address);
+            let db = new TransactionalKeyValue(/*that.config.workDir +*/ `contractsRuntime/${address}`);
             try {
                 vm.setTimingLimits(limits.timeLimit + 10000);
                 vm.setCpuLimit(limits.timeLimit + 500);
@@ -303,14 +302,14 @@ class EcmaContract {
             } catch (e) {
                 vm.destroy();
                 logger.error('Contract ' + address + ' deployed with error. ' + e);
-                throw e;
+                if (counts < 10) {
+                    logger.error('Attempts fix ' + counts);
+                    return setImmediate(() => createInstance(limits, counts + 1));
+                } else {
+                    throw e;
+                }
             }
-
-
-
-
         }
-
 
         this.getContractLimits(address, function (limits) {
             createInstance(limits);
@@ -1290,11 +1289,11 @@ class EcmaContract {
                 cb(new Error(`Error getting contract instance 2 for contract 1: ${address} method ${method}`));
             } else {
                 try {
-                    this._instanceCallstack.push(instance);
-                    instance.vm.waitForReady(() => {
-                        if(instance.vm.isBusy()) {
-                            logger.error('VM is busy');
-                            cb(new Error('VM is busy'));
+                    // this._instanceCallstack.push(instanceMasterContract);
+                    instanceMasterContract.vm.waitForReady(() => {
+                        if(instanceMasterContract.vm.isBusy()) {
+                            logger.error('Master VM is busy');
+                            cb(new Error('Master VM is busy'));
                             return;
                         }
 
@@ -1303,45 +1302,49 @@ class EcmaContract {
                             cb(new Error('Invalid sender wallet'));
                         }
 
-                        instanceMasterContract.vm.setState(state);
-                        instanceMasterContract.vm.runContextMethod("updateExternalState");
-                        instanceMasterContract.vm.runContextMethodAsync("contract.calculateBlockFee", (err, fee) => {
-                            if (err) {
-                                logger.error(`Master contract "${address}" in method "${method}" falls with error: ${err}`);
-                                this._nextCallings = [];
-                                this._delayedCallLimiter = 0;
-                                cb(new Error(`Master contract "${address}" in method "${method}" falls with error: ${err}`));
+                        this._instanceCallstack.push(instance);
+                        instance.vm.waitForReady(() => {
+                            if(instance.vm.isBusy()) {
+                                logger.error('VM is busy');
+                                cb(new Error('VM is busy'));
                                 return;
                             }
 
-                            state.block.fee = Number(fee);
-                            
-                            console.log('CALL METHOD:', address, method, args[1], method === 'addNodeToWhiteList' && args[1] === null);
-                            if (method === 'addNodeToWhiteList' && args[1] === null) {
-                                cb(new Error('Call addNodeToWhiteList with null args'));
-                            }
-
-                            instance.vm.setState(state);
-                            instance.vm.runContextMethod("updateExternalState");
-                            instance.vm.runContextMethodAsync(`contract.${method}`, async (err, result) => {
+                            instanceMasterContract.vm.setState(state);
+                            instanceMasterContract.vm.runContextMethod("updateExternalState");
+                            instanceMasterContract.vm.runContextMethodAsync("contract.calculateBlockFee", (err, fee) => {
                                 if (err) {
-                                    logger.error(`Contract "${address}" in method "${method}" falls with error: ${err}`);
+                                    logger.error(`Master contract "${address}" in method "${method}" falls with error: ${err}`);
                                     this._nextCallings = [];
                                     this._delayedCallLimiter = 0;
-                                    cb(new Error(`Contract "${address}" in method "${method}" falls with error: ${err}`));
+                                    cb(new Error(`Master contract "${address}" in method "${method}" falls with error: ${err}`));
                                     return;
                                 }
 
-                                if (this._nextCallings.length === 0) {
-                                    cb(null, result);
-                                } else {
-                                    let nextCall = this._nextCallings.shift();
-                                    await this.callContractMethodDeployWaitPromise(nextCall.contract, nextCall.method, nextCall.state, ...nextCall.args);
-                                    cb(null, result);
-                                }
+                                state.block.fee = Number(fee);
+                                
+                                instance.vm.setState(state);
+                                instance.vm.runContextMethod("updateExternalState");
+                                instance.vm.runContextMethodAsync(`contract.${method}`, async (err, result) => {
+                                    if (err) {
+                                        logger.error(`Contract "${address}" in method "${method}" falls with error: ${err}`);
+                                        this._nextCallings = [];
+                                        this._delayedCallLimiter = 0;
+                                        cb(new Error(`Contract "${address}" in method "${method}" falls with error: ${err}`));
+                                        return;
+                                    }
 
-                            }, ...args);
-                        }, state);
+                                    if (this._nextCallings.length === 0) {
+                                        cb(null, result);
+                                    } else {
+                                        let nextCall = this._nextCallings.shift();
+                                        await this.callContractMethodDeployWaitPromise(nextCall.contract, nextCall.method, nextCall.state, ...nextCall.args);
+                                        cb(null, result);
+                                    }
+
+                                }, ...args);
+                            }, state);
+                        });
                     });
 
                 } catch (err) {
@@ -1403,8 +1406,12 @@ class EcmaContract {
                 if(that._instanceCallstack.hasOwnProperty(a)) {
                     await (function () {
                         return new Promise(function (resolve) {
+                            // console.time('Total');
+                            // console.time('Event');
                             that.events.rollback(that._instanceCallstack[a].vm.state.contractAddress, state.block.index, function () {
+                                // console.timeEnd('Event');
                                 that._instanceCallstack[a].db.rollback(function () {
+                                    // console.timeEnd('Total');
                                     resolve();
                                 });
                             });
@@ -1421,7 +1428,6 @@ class EcmaContract {
                 logger.error(e);
             }
         })();
-
     }
 
     /**
@@ -1700,6 +1706,95 @@ class EcmaContract {
         return fee;
     }
 
+    _nextCallingsDeploy = [];
+    _nextCallingsDeployClear = true;
+    
+    _nextCallingsIndex = 0;
+    _nextCallingsStartTimestamp = 0;
+    _nextCallingsEndTimestamp = 0;
+
+    saveBenchmarkData() {
+        const fileName = 'benchmark.txt';
+        
+        if (!fs.existsSync(fileName)) {
+            fs.writeFileSync(fileName, '', { encoding: 'utf-8' });
+        }
+
+        const data = {
+            index: this._nextCallingsIndex,
+            start: this._nextCallingsStartTimestamp,
+            end: this._nextCallingsEndTimestamp,
+            minutes: (this._nextCallingsEndTimestamp - this._nextCallingsStartTimestamp) / 60 / 1000,
+        };
+
+        fs.appendFileSync(fileName, JSON.stringify(data) + '\n', { encoding: 'utf-8' });
+    }
+
+    async nextDeployContractMethod() {
+        if (storj.get('deployNow')) {
+            return;
+        }
+
+        if (this._nextCallingsDeploy.length) {
+            if (storj.get('chainResponseMutex') || storj.get('syncInProgress')) {
+                return setImmediate(() => this.nextDeployContractMethod());
+            }
+
+            storj.put('deployCalling', this._nextCallingsDeploy.length);
+            storj.put('deployNow', true);
+
+            const nextCall = this._nextCallingsDeploy.shift();
+            this._deployContractMethod(nextCall.address, nextCall.method, nextCall.args, nextCall.state, (...attrs) => {
+                storj.put('deployNow', false);
+                this._nextCallingsIndex++;
+
+                if (this._nextCallingsIndex % 10000 === 0) {
+                    this._nextCallingsEndTimestamp = new Date().getTime();
+                    this.saveBenchmarkData();
+                    this._nextCallingsStartTimestamp = new Date().getTime();
+                }
+
+                setTimeout(() => this.nextDeployContractMethod(), 100);
+
+                nextCall.cb(...attrs);
+            }, nextCall.accountName);
+        } else {
+            console.timeEnd('Transactions');
+            
+            storj.put('deployCalling', this._nextCallingsDeploy.length);
+
+            this._nextCallingsEndTimestamp = new Date().getTime();
+            this.saveBenchmarkData();
+
+            console.log('DONE');
+            console.log('DONE');
+            console.log('DONE');
+            console.log('DONE');
+            console.log('DONE');
+            console.log('DONE');
+            console.log('DONE');
+        }
+    }
+
+    deployContractMethod(address, method, args = [], state = {}, cb, accountName = false) {
+        if (this._nextCallingsDeploy.length === 0) {
+            console.time('Transactions');
+            this._nextCallingsStartTimestamp = new Date().getTime();
+        }
+
+        this._nextCallingsDeploy.push({
+            address,
+            method,
+            args,
+            state,
+            cb,
+            accountName
+        });
+        
+        storj.put('deployCalling', this._nextCallingsDeploy.length);
+        this.nextDeployContractMethod();
+    }
+
     /**
      * Deploy call contract method
      * @param {string} address
@@ -1709,30 +1804,23 @@ class EcmaContract {
      * @param {Function} cb
      * @param {string} accountName
      */
-    deployContractMethod(address, method, args = [], state = {}, cb, accountName = false) {
-        let that = this;
+    _deployContractMethod(address, method, args = [], state = {}, cb, accountName = false) {
+        this.getContractLimits(address, async (limits) => {
 
-
-        that.getContractLimits(address, async function (limits) {
-
-
-            if(!that.checkOrAddCallingLimitsControl(address, moment().utc().valueOf(), limits.callLimit, true)) {
+            if(!this.checkOrAddCallingLimitsControl(address, moment().utc().valueOf(), limits.callLimit, true)) {
                 logger.error('Contract ' + address + ' calling limits exceed');
                 return cb(new Error('Contract ' + address + ' calling limits exceed'));
             }
 
+            const wallet = await this.accountManager.getAccountAsync(accountName);
             let callBlock;
-
-
-            let wallet = await that.accountManager.getAccountAsync(accountName);
-
 
             //If method is string - its method name. Object - is signed block
             if(Array.isArray(args)) {
 
                 state.from = wallet.id;
                 state.contractAddress = address;
-                state.masterContractAddress = that.config.ecmaContract.masterContract ? that.config.ecmaContract.masterContract : false;
+                state.masterContractAddress = this.config.ecmaContract?.masterContract || false;
 
                 callBlock = new EcmaContractCallBlock(address, method, args, state);
                 callBlock = wallet.signBlock(callBlock);
@@ -1743,35 +1831,42 @@ class EcmaContract {
                 state.masterContractAddress = callBlock.state.masterContractAddress;
             }
 
-            that.getContractInstanceByAddress(state.contractAddress, function (err, instance) {
+            this.getContractInstanceByAddress(state.contractAddress, (err, instance) => {
                 if(err) {
                     return cb(new Error('Contract ' + state.contractAddress + ' fail getting instance'));
                 } else {
-                    let testWallet = new Wallet(false, that.config);
+                    instance.vm.waitForReady(() => {
+                        if(instance.vm.isBusy()) {
+                            logger.error('VM is busy');
+                            cb(new Error('VM is busy'));
+                            return;
+                        }
+                        
+                        const testWallet = new Wallet(false, this.config);
 
-                    testWallet.createId(callBlock.pubkey);
-                    if(testWallet.id !== state.from) {
-                        logger.error('Contract method deploy check author error');
-                        cb(new Error('Contract method deploy check author error'));
-                        return;
-                    }
+                        testWallet.createId(callBlock.pubkey);
+                        if(testWallet.id !== state.from) {
+                            logger.error('Contract method deploy check author error');
+                            cb(new Error('Contract method deploy check author error'));
+                            return;
+                        }
+                        // console.log('-------------------------------------------------');
+                        // console.log('GENERATING BLOCK START');
+                        this.blockchain.generateNextBlockAuto(callBlock, async (generatedBlock) => {
+                            if (!generatedBlock) {
+                                logger.error('Generate block error');
+                                cb(new Error('Generate block error'));
+                                return;
+                            }
 
-                    that.blockchain.generateNextBlockAuto(callBlock, function (generatedBlock) {
+                            this.blockchain.addBlock(generatedBlock, async () => {
+                                this.blockchain.broadcastLastBlock();
+                                // console.log('GENERATING BLOCK FINISH');
+                                // console.log('-------------------------------------------------');
 
-                        that.events._handleBlockReplay(generatedBlock.index, function () {
-                            that._handleBlock(JSON.parse(generatedBlock.data), generatedBlock, true, (err) => {
-                                if(err) {
-                                    cb(err);
-                                    return;
-                                }
-                                that.blockchain.addBlock(generatedBlock, function () {
-                                    that.blockchain.broadcastLastBlock();
-                                    cb(null, generatedBlock);
-                                })
+                                cb(null, generatedBlock);
                             });
                         });
-
-
                     });
                 }
             })
@@ -1867,10 +1962,7 @@ class EcmaContract {
                         }
                     }, this._contractInstanceCacheLifetime);
 
-                    process.nextTick(function () {
-                        cb(that._contractInstanceCache[address].instance);
-                    });
-
+                    setImmediate(() => cb(that._contractInstanceCache[address].instance));
                 }
             }
         }
@@ -2072,8 +2164,6 @@ class EcmaContract {
             callstack.push(method);
             callstack.push(state);
             callstack.push(function (err, result) {
-
-
                 if(err) {
                     that.rollbackAndClearContractsChain(state, function () {
                         logger.error('Contracts calling chain falls with error: ' + err);
@@ -2113,17 +2203,11 @@ class EcmaContract {
      * @private
      */
     _handleBlock(blockData, block, testOnly, callback) {
-        let that = this;
+        const testWallet = new Wallet(false, this.config);
         let verifyBlock = {};
-        let testWallet = new Wallet(false, that.config);
-
-
-
 
         switch (blockData.type) {
             case EcmaContractDeployBlock.blockType:
-
-
                 verifyBlock = new EcmaContractDeployBlock(blockData.ecmaCode, blockData.state);
 
                 if(verifyBlock.data !== blockData.data) {
@@ -2145,6 +2229,7 @@ class EcmaContract {
 
             case EcmaContractCallBlock.blockType:
                 verifyBlock = new EcmaContractCallBlock(blockData.address, blockData.method, blockData.args, blockData.state);
+                
                 if(verifyBlock.data !== blockData.data) {
                     logger.error('Contract invalid data in block ' + block.index);
                     callback(new Error('Contract invalid data in block ' + block.index));
@@ -2154,18 +2239,22 @@ class EcmaContract {
                 //Checking sign and wallet id equals
                 testWallet.createId(blockData.pubkey);
                 if(!this.blockchain.wallet.verifyData(blockData.data, blockData.sign, blockData.pubkey) || blockData.state.from !== testWallet.id) {
+                    // console.log('invalid sign', 
+                    //     blockData, 
+                    //     !this.blockchain.wallet.verifyData(blockData.data, blockData.sign, blockData.pubkey), 
+                    //     blockData.state.from !== testWallet.id
+                    // )
                     logger.error('Contract invalid sign in block ' + block.index);
                     callback(new Error('Contract invalid sign in block ' + block.index));
                     return
                 }
 
                 this._handleContractCall(blockData.address, blockData.method, blockData.args, blockData.state, block, testOnly, callback);
-
-
                 break;
+
             default:
-                logger.error('Unexpected block type ' + block.index);
-                callback(new Error('Unexpected block type ' + block.index));
+                logger.error('Unexpected block type ' + block.index + ' | ' + blockData.type);
+                callback(new Error('Unexpected block type ' + block.index + ' | ' + blockData.type));
         }
     }
 

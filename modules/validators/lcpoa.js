@@ -160,20 +160,21 @@ function generateEmptyBlock(keyring) {
 
     let lastMaxBlock = blockchain.maxBlock;
 
-    blockchain.getLatestBlock(function (block) {
+    blockchain.getLatestBlock(async function (block) {
         if(moment().utc().valueOf() - block.timestamp > (blockchain.config.generateEmptyBlockDelay) || keyring) {
             let empty = new Signable();
-            generateNextBlock(empty, function (generatedBlock) {
+            generateNextBlock(empty, async function (generatedBlock) {
                 //If someone has added a block during this time, then we do nothing
-                blockchain.getLatestBlock(function (block) {
+                blockchain.getLatestBlock(async function (block) {
                     if(moment().utc().valueOf() - block.timestamp > (blockchain.config.generateEmptyBlockDelay) || keyring) {
-                        if(isValidNewBlock(generatedBlock, block)) {
-                            blockchain.addBlock(generatedBlock);
+                        if(await isValidNewBlock(generatedBlock, block)) {
+                            blockchain.addBlock(generatedBlock, () => {
+                                blockchain.broadcastLastBlock();
+                            });
                         } else {
                             console.log('Error: LCPoA: We generate bad block :( ')
                         }
-                        blockchain.broadcastLastBlock();
-
+                        // blockchain.broadcastLastBlock();
                     }
                 });
             }, function () {

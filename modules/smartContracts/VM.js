@@ -31,7 +31,7 @@ class VM {
         this.script = '';
         this.state = undefined;
         this.context = undefined;
-        this.timeout = (typeof options === 'undefined' || typeof options.timeLimit === 'undefined' ? 1000 : options.timeLimit);
+        this.timeout = (typeof options === 'undefined' || typeof options.timeLimit === 'undefined' ? 50 * 1000 : options.timeLimit);
         this.cpuLimit = (typeof options === 'undefined' || typeof options.cpuLimit === 'undefined' ? 500 : options.cpuLimit);
         this.logging = (typeof options === 'undefined' || typeof options.logging === 'undefined' ? true : options.logging);
         this.busy = false;
@@ -370,6 +370,12 @@ class VM {
         let that = this;
         this.busy = true;
         let vmContext = this.context.global;
+
+        if (!vmContext?.getSync) {
+            console.log('vmContext', vmContext, this.context);
+            return setImmediate(() => this.runContextMethodAsync(context, cb, ...args));
+        }
+
         let prevContext = vmContext;
         context = context.split('.');
         for (let a in context) {
@@ -479,14 +485,12 @@ class VM {
      * @param cb
      */
     waitForReady(cb) {
-        let that = this;
-
-        if(!that.isBusy()) {
+        if(!this.isBusy()) {
             cb();
             return;
         }
 
-        setImmediate(() => this.waitForReady(cb));
+        setImmediate(async () => this.waitForReady(cb));
     }
 
     /**

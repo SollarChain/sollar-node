@@ -47,7 +47,7 @@ class EcmaContractCallBlock extends Signable {
      */
     generateData() {
         this.data = cryptography.hash(this.type + this.address + stableStringify(this.state) + stableStringify(this.args) + this.method).toString();
-
+        // console.log('GenerateData', { type: this.type, address: this.address, state: stableStringify(this.state), args: stableStringify(this.args), method: this.method, data: this.data });
     }
 
 

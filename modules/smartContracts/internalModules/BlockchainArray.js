@@ -452,7 +452,6 @@ class BlockchainArraySafe extends _BlockchainArray {
  */
 class BlockchainArray extends BlockchainArraySafe {
 
-
     /**
      * To array converter
      * return {Array}

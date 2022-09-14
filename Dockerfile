@@ -17,10 +17,15 @@ RUN mkdir -p /app/sollar/runtime \
     && npm i --quiet --silent \
     && cd /app/plugins/iz3-bitcore-crypto \
     && npm i --quiet --silent \
+    && cd /app/plugins/iz3-sqlite3-event-db \
+    && npm i --quiet --silent \
+    # && cd /app/plugins/iz3-sequelize-event-db \
+    # && npm i --quiet --silent \
     && npm install --quiet --silent -g wscat \
     && npm install --quiet --silent -g forever \
     && cd /app
 
-CMD /bin/bash
+# CMD /bin/bash
+CMD cd /app/sollar && sh client_start.sh
 
 EXPOSE 3017 6018

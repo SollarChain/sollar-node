@@ -1,51 +1,28 @@
 {
-  "version": "0.1.1",
   "p2pPort": 6018,
   "validators": [
     "pos"
   ],
   "httpServer": "0.0.0.0",
   "httpPort": 3017,
-  "rpcPassword": "",
-  "blockAcceptCount": 0,
-  "maxPeers": 25,
-  "transactionIndexEnable": true,
   "initialPeers": [
     "wss://wss.testnet.sollar.tech/"
   ],
-  "signFunction": "bitcore",
-  "hashFunction": "SHA256",
-  "generatorFunction": "bitcore",
+
+  "appEntry": "./sollar/app.js",
+
+  "generateEmptyBlockDelay": 6000000,
+
+  "appConfig": {
+    "NN_CONTRACT_ADDRESS": false
+  },
+
   "plugins": [
     "iz3-bitcore-crypto",
     "iz3-basic-crypto",
     "iz3-starwave-crypto",
-    "sollar-block-fee"
-  ],
-  "upnp": {
-    "enabled": true,
-    "token": "sollarpos"
-  },
-  "ecmaContract": {
-    "enabled": true,
-    "allowDebugMessages": true,
-    "contractInstanceCacheLifetime": 10000,
-    "masterContract": 1,
-    "defaultLimits": {
-      "ram": 4096,
-      "timeLimit": 120000,
-      "callLimit": 40000
-    }
-  },
-
-  "workDir": "./runtime",
-  "walletFile": "./runtime/wallet.json",
-  "walletsDB": "mem://wallets.json",
-  "blocksDB": "blocks",
-
-  "appEntry": "./sollar/app.js",
-
-  "appConfig": {
-    "NN_CONTRACT_ADDRESS": false
-  }
+    "sollar-block-fee",
+    
+    "iz3-sqlite3-event-db"
+  ]
 }

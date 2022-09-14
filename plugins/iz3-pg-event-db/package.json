@@ -1,0 +1,32 @@
+{
+  "name": "iz3-pg-db",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+
+  "dependencies": {
+    "bignumber.js": "^7.2.1",
+    "pg": "^8.8.0"
+  },
+
+  "homepage": "https://izzz.io",
+  "author": "IZZZIO, LLC",
+  "license": "GPL",
+
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Izzzio/izzzio.git"
+  },
+  
+  "keywords": [
+    "blockchain",
+    "crypto",
+    "izzzio",
+    "izzz",
+    "iz3",
+    "plugin",
+    "db",
+    "pg",
+    "postgress"
+  ]
+}
