@@ -8,7 +8,7 @@ let blockchain = null;
  * @type {boolean}
  */
 let generateEmptyBlocks = true;
-const ThrustedNodesTimeout = 86400 * 1000; //24hours
+const ThrustedNodesTimeout = 24 * 60 * 60 * 1000; //24hours
 
 const Wallet = require('../wallet');
 const Block = require('../block');
@@ -106,8 +106,6 @@ async function isValidNewBlock(newBlock, previousBlock) {
         return true;
     }
 
-    // console.log('\n');
-    console.log('POS check block', previousBlock.index, '-', newBlock.index);
     const masterContractAddress = blockchain.config.ecmaContract.masterContract;
     const isValidWallet = await callMethodRollback(masterContractAddress, 'checkBlockSign', [newBlock.hash, newBlock.sign]) || testWallet.verifyData(newBlock.hash, newBlock.sign, JSON.parse(newBlock.data)?.state?.from);
     let feeFromBlock;
@@ -116,18 +114,14 @@ async function isValidNewBlock(newBlock, previousBlock) {
         feeFromBlock = await callMethodRollback(masterContractAddress, 'getFeeFromBlock', [newBlock]);
     }
 
-    // console.log('pos', masterContractAddress, isValidWallet, newBlock.fee, feeFromBlock);
-
     const checkBlockFee = typeof newBlock.fee === 'undefined' || newBlock.fee == feeFromBlock;
-    // console.log('pos 2', isValidWallet, checkBlockFee);
     return isValidWallet && checkBlockFee;
 }
 
 const thrustedAwait = [];
 const AddMessageTimeout = 10 * 1000;
-const MessageTimeout = 60 * 1000;
+const MessageTimeout = 1 * 60 * 1000;
 let lastTimestampRequest = 0;
-let lastRecepient = '';
 
 /**
  * Creates a new block
@@ -137,57 +131,45 @@ let lastRecepient = '';
  * @param {Function} cancelCondition
  * @param {int} timestamp
  */
-async function generateNextBlock(blockData, cb, cancelCondition, timestamp, fromRequest=false) {
+async function generateNextBlock(blockData, cb, cancelCondition, timestamp, notifyOtherNodes=true) {
     // if(typeof blockData === 'object') {
     //     blockData = JSON.stringify(blockData);
     // }
+
     const jsonBlockData = typeof blockData === 'object' ? blockData : JSON.parse(blockData);
     
     const masterContractAddress = blockchain.config.ecmaContract.masterContract;
     if (await contractExist(masterContractAddress)) {
-        // console.log('generateNextBlock', blockchain.wallet.keysPair.public);
         const isNodeCanValidate = await callMethodRollback(masterContractAddress, 'checkIsNodeCanValidate', [blockchain.wallet.keysPair.public]);
-        // console.log('isNodeCanValidate', isNodeCanValidate);
-    
-        // blockchain.sockets.forEach(socket => {
-        //     console.log('connected sockets', socket);
-        // })
 
-        if (!isNodeCanValidate) {
-            console.log('Info: Thrusted Nodes: Sending block addition request');
+        if (!isNodeCanValidate && notifyOtherNodes) {
+            console.log('Info: Sending block addition request');
 
-            blockchain.getLatestBlock(function (previousBlock) {
-                if(!previousBlock) {
-                    return false;
-                }
-
-                /**
-                 * Sending a message
-                 */
-                // console.log('blockData', blockData);
-                const message = blockchain.broadcastMessage({ blockData: jsonBlockData, previousBlock }, 'SelectAddBlock', 'thrusted_node', blockchain.config.recieverAddress, 0);
-                console.log('Message with', message.timestamp, 'sended');
-                /**
-                 * If the waiting time has exceeded the timeout, then we consider the transaction unsuccessful
-                 * @type {number}
-                 */
-                const timer = setTimeout(() => {
-                    for (const key in thrustedAwait) {
-                        if(thrustedAwait.hasOwnProperty(key)) {
-                            if(Number(thrustedAwait[key].timestamp) === Number(message.timestamp)) {
-                                console.log('Message with', message.timestamp, 'closed');
-                                thrustedAwait[key].callback();
-                                delete thrustedAwait[key];
-                                return;
-                            }
+            /**
+             * Sending a message
+             */
+            const message = blockchain.broadcastMessage({ blockData: jsonBlockData }, 'SelectAddBlock', 'thrusted_node', blockchain.config.recieverAddress, 0);
+            // console.log('Message with', message.timestamp, 'sended');
+            /**
+             * If the waiting time has exceeded the timeout, then we consider the transaction unsuccessful
+             * @type {number}
+             */
+            const timer = setTimeout(() => {
+                for (const key in thrustedAwait) {
+                    if(thrustedAwait.hasOwnProperty(key)) {
+                        if(Number(thrustedAwait[key].timestamp) === Number(message.timestamp)) {
+                            // console.log('Message with', message.timestamp, 'closed');
+                            thrustedAwait[key].callback();
+                            delete thrustedAwait[key];
+                            return;
                         }
                     }
-                }, AddMessageTimeout);
+                }
+            }, AddMessageTimeout);
 
-                thrustedAwait.push({callback: cb, timestamp: message.timestamp, timer: timer});
-            });
+            thrustedAwait.push({callback: cb, timestamp: message.timestamp, timer: timer});
 
-            return false;
+            return;
         }
     }
 
@@ -209,16 +191,12 @@ async function generateNextBlock(blockData, cb, cancelCondition, timestamp, from
         const wallet = jsonBlockData.wallet;
         const newBlock = new Block(nextIndex, previousBlock.hash, nextTimestamp, jsonBlockData, hash, startTimestamp, sign, wallet);
 
-        // console.log('pos DATA', nextIndex, jsonBlockData.data);
-
-        if (!fromRequest) {
-            setTimeout(() => {
-                blockchain.broadcastMessage({
-                    type: 'thrusted_block_add',
-                    timestamp: newBlock.timestamp,
-                    block: newBlock,
-                }, 'AddedBlock', 'thrusted_node', blockchain.config.recieverAddress, 0);
-            }, 100);
+        if (notifyOtherNodes) {
+            blockchain.broadcastMessage({
+                type: 'thrusted_block_add',
+                timestamp: newBlock.timestamp,
+                block: newBlock,
+            }, 'AddedBlock', 'thrusted_node', blockchain.config.recieverAddress, 0);
         }
 
         cb(newBlock);
@@ -237,7 +215,7 @@ function generateEmptyBlock() {
         blockchain.addBlock(generatedBlock, () => {
             blockchain.broadcastLastBlock();
         })
-    });
+    }, undefined, undefined, false);
 }
 
 function generateEmptyBlockCheck() {
@@ -246,6 +224,7 @@ function generateEmptyBlockCheck() {
             if(!previousBlock) {
                 return;
             }
+
             if(moment().utc().valueOf() - previousBlock.timestamp > (blockchain.config.generateEmptyBlockDelay)) {
                 console.log('Info: Create empty block');
                 generateEmptyBlock();
@@ -270,66 +249,32 @@ function isReady() {
     return true;
 }
 
-
-let isPosAddingTimeout = null;
-
-function saveIsPosAdding() {
-    clearTimeout(isPosAddingTimeout);
-    storj.put('isPosAdding', true);
-    isPosAddingTimeout = setTimeout(() => {
-        storj.put('isPosAdding', false);
-    }, 10 * 1000);
-}
-
 async function handleMessageSelectAddBlock(message) {
-    if (storj.get('chainResponseMutex') || storj.get('syncInProgress')) {
-        return setTimeout(() => handleMessageSelectAddBlock(message), 100);
-    }
-
-    console.log('handleMessageSelectAddBlock', message.id);
-
     if (message.reciver === 'thrusted_node') {
-        const masterContractAddress = blockchain.config.ecmaContract.masterContract;
-        const isNodeCanValidate = await callMethodRollback(masterContractAddress, 'checkIsNodeCanValidate', [blockchain.wallet.keysPair.public]);
-
-        blockchain.broadcastMessage({ message, isNodeCanValidate }, 'SelectAddBlockCB', message.recepient, blockchain.config.recieverAddress);
+        blockchain.broadcastMessage({ message }, 'SelectAddBlockCB', message.recepient, blockchain.config.recieverAddress);
     }
 }
 
-const validatorsTimestamps = {};
 async function handleMessageSelectAddBlockCB(message) {
-    if (storj.get('chainResponseMutex') || storj.get('syncInProgress')) {
-        return setTimeout(() => handleMessageSelectAddBlockCB(message), 100);
-    }
-
-    console.log('handleMessageSelectAddBlockCB', message.id);
-
     const previousMessage = message.data.message;
 
     if (message.reciver === blockchain.config.recieverAddress) {
-        if(moment().utc().valueOf() - previousMessage.timestamp < MessageTimeout 
-            && lastTimestampRequest < previousMessage.timestamp 
-            && previousMessage.recepient !== lastRecepient
+        if (moment().utc().valueOf() - previousMessage.timestamp < MessageTimeout && 
+            lastTimestampRequest < previousMessage.timestamp
         ) {
-            console.log('previousMessage.timestamp', previousMessage.timestamp);
-            if (message.data.isNodeCanValidate && !validatorsTimestamps[previousMessage.timestamp]) {
-                validatorsTimestamps[previousMessage.timestamp] = true;
+            const onlineNodes = blockchain.getPeersMessageBusAddress();
+            const masterContractAddress = blockchain.config.ecmaContract.masterContract;
+            const isNodeCanValidate = await callMethodRollback(masterContractAddress, 'checkIsNodeCanValidate', [message.recepient, onlineNodes]);
+
+            const thrusted = getThrustedByTimestamp(previousMessage.timestamp);
+
+            if (isNodeCanValidate && thrusted && !thrusted.sendOnValidation) {
+                thrusted.sendOnValidation = true;
+                console.log(`Info: Sending to ${message.recepient} block addition request`);
                 blockchain.broadcastMessage(previousMessage, 'AddBlock', message.recepient, blockchain.config.recieverAddress, 0);
             }
         }
     }
-}
-
-async function syncPreviousBlock(messagePreviousBlock) {
-    return new Promise(resolve => {
-        blockchain.getLatestBlock(async function (previousBlock) {
-            if (messagePreviousBlock.index - 1 === previousBlock.index) {
-                blockchain.addBlock(messagePreviousBlock, resolve);
-            } else {
-                resolve();
-            }
-        })
-    })
 }
 
 /**
@@ -337,45 +282,22 @@ async function syncPreviousBlock(messagePreviousBlock) {
  * @param message
  */
 async function handleMessageAddBlock(message) {
-    if (storj.get('chainResponseMutex') || storj.get('syncInProgress')) {
-        return setTimeout(() => handleMessageAddBlock(message), 100);
-    }
-    
-    console.log('handleMessageAddBlock', message.id);
-
     const previousMessage = message.data;
 
     if (message.reciver === blockchain.config.recieverAddress) {
-        if(moment().utc().valueOf() - previousMessage.timestamp < MessageTimeout && lastTimestampRequest < previousMessage.timestamp && message.recepient !== lastRecepient) {
-            // console.log('message', message);
-            await syncPreviousBlock(previousMessage.data.previousBlock);
-            
-            const masterContractAddress = blockchain.config.ecmaContract.masterContract;
-            const isNodeCanValidate = await callMethodRollback(masterContractAddress, 'checkIsNodeCanValidate', [blockchain.wallet.keysPair.public]);
-            if (!isNodeCanValidate) {
-                blockchain.broadcastMessage({
-                    type: 'thrusted_block_cant_add',
-                    timestamp: previousMessage.timestamp,
-                }, 'AddedBlock', previousMessage.recepient, blockchain.config.recieverAddress, 0);
-                return;
-            }
-
+        if (moment().utc().valueOf() - previousMessage.timestamp < MessageTimeout && 
+            lastTimestampRequest < previousMessage.timestamp
+        ) {
             lastTimestampRequest = previousMessage.timestamp;
-
-            const messageBlockData = previousMessage.data.blockData;
-            messageBlockData.state.from = blockchain.wallet.keysPair.public;
-            const state = messageBlockData.state;
-            let blockData = new EcmaContractCallBlock(messageBlockData.address, messageBlockData.method, messageBlockData.args, state);
 
             const accountManager = storj.get('accountManager');
             const wallet = await accountManager.getAccountAsync(false);
 
+            const messageBlockData = previousMessage.data.blockData;
+            messageBlockData.state.from = blockchain.wallet.keysPair.public;
+            
+            let blockData = new EcmaContractCallBlock(messageBlockData.address, messageBlockData.method, messageBlockData.args, messageBlockData.state);
             blockData = wallet.signBlock(blockData);
-
-            /**
-             * each new block should be added with a new node
-             **/
-             // lastRecepient = message.recepient; 
 
             /**
              * Candidate block for adding to the network
@@ -383,32 +305,25 @@ async function handleMessageAddBlock(message) {
              * to the network. To do this, the timestamp of the message is used as the block time
              * Checking the Timestamp match in this case will reject the duplicated block.
              */
-            generateNextBlock(JSON.stringify(blockData), (generatedBlock) => {
-                blockchain.addBlock(generatedBlock, () => {
-                    blockchain.broadcastLastBlock();      
-                    // saveIsPosAdding();
+            generateNextBlock(JSON.stringify(blockData), async (generatedBlock) => {
+                blockchain.addBlock(generatedBlock, async () => {
+                    blockchain.broadcastLastBlock();
 
-                    console.log(`Block with index ${generatedBlock.index} added for ${previousMessage.recepient}`);
+                    console.log(`Info: Block with index ${generatedBlock.index} added for ${previousMessage.recepient}`);
 
                     /**
                      * We send a response about the successful addition of the block
                      * with a slight delay
                      */
-                    setTimeout(() => {
-                        blockchain.broadcastMessage({
-                            type: 'thrusted_block_add',
-                            timestamp: previousMessage.timestamp,
-                            block: generatedBlock,
-                        }, 'AddedBlock', 'thrusted_node', blockchain.config.recieverAddress, 0);
-                    }, 100);
+                    blockchain.broadcastMessage({
+                        type: 'thrusted_block_add',
+                        timestamp: previousMessage.timestamp,
+                        block: generatedBlock,
+                    }, 'AddedBlock', 'thrusted_node', blockchain.config.recieverAddress, 0);
                 })
-            }, null, previousMessage.timestamp, true);
+            }, null, previousMessage.timestamp, false);
         }
-
-        return true;
     }
-
-    return false;
 }
 
 function getThrustedByTimestamp(timestamp) {
@@ -433,15 +348,6 @@ function removeThrustedByTimestamp(timestamp) {
 }
 
 async function handleMessageAddedBlock(message) {
-    if (storj.get('chainResponseMutex') || storj.get('syncInProgress')) {
-        return setTimeout(() => handleMessageAddedBlock(message), 100);
-    }
-
-    console.log('handleMessageAddedBlock', message.id);
-    /**
-     * If we received a message from a trusted node
-     */
-
     if (message.data?.type === 'thrusted_block_add') {
         const timestamp = message.data.timestamp;
         const block = message.data.block;
@@ -457,28 +363,32 @@ async function handleMessageAddedBlock(message) {
             setTimeout(() => {
                 thrusted.callback(block);
                 removeThrustedByTimestamp(timestamp);
-                console.log('Message with', timestamp, 'callback');
             }, 100);
-
-            return true;
         } else {
-            blockchain.getLatestBlock(async function (previousBlock) {
+            blockchain.getLatestBlock((previousBlock) => {
                 if(!previousBlock) {
-                    console.log('previousBlock', previousBlock);
-                    return
+                    return;
                 }
 
                 if (block.previousHash === previousBlock.hash) {
-                    // saveIsPosAdding();
                     blockchain.addBlock(block, () => {
-                        console.log('Added block', block.index);
+                        // console.log('Added block', block.index);
                     })
                 }
             });
         }
     }
+}
 
-    return false;
+function handlerValidator(message, cb) {
+    if (storj.get('chainResponseMutex') || storj.get('syncInProgress')) {
+        setTimeout(() => cb(message), 100);
+        return;
+    }
+
+    // console.log('Message handler validator', message.id);
+
+    return cb(message);
 }
 
 /**
@@ -499,10 +409,10 @@ module.exports = function (blockchainVar) {
     const starwave = storj.get('starwaveProtocol');
     storj.put('isPosActive', true);
 
-    starwave.registerMessageHandler('SelectAddBlock', handleMessageSelectAddBlock);
-    starwave.registerMessageHandler('SelectAddBlockCB', handleMessageSelectAddBlockCB);
-    starwave.registerMessageHandler('AddBlock', handleMessageAddBlock);
-    starwave.registerMessageHandler('AddedBlock', handleMessageAddedBlock);
+    starwave.registerMessageHandler('SelectAddBlock', (message) => handlerValidator(message, handleMessageSelectAddBlock));
+    starwave.registerMessageHandler('SelectAddBlockCB', (message) => handlerValidator(message, handleMessageSelectAddBlockCB));
+    starwave.registerMessageHandler('AddBlock', (message) => handlerValidator(message, handleMessageAddBlock));
+    starwave.registerMessageHandler('AddedBlock', (message) => handlerValidator(message, handleMessageAddedBlock));
 
     console.log(`Info: Pos validator loaded`);
 

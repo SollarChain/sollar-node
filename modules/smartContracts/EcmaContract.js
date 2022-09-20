@@ -1214,45 +1214,58 @@ class EcmaContract {
     callContractMethodDeployWaitWithOutBlockFee(address, method, state, cb, ...args) {
         state.rollback = false;
 
+        if (!method) {
+            console.log('address, method, state, ...args', address, method, state, ...args)
+        }
+
         if (method.indexOf('._') !== -1 || method[0] === '_') {
             throw new Error('Calling private contract method in deploy method not allowed');
         }
 
-        this.getContractInstanceByAddress(address, (err, instance) => {
+        this.getContractInstanceWithMasterContractByAddressAsync(address, (err, instanceMasterContract, instance) => {
             if (err) {
                 cb(new Error(`Error getting contract instance 2 for contract 1: ${address} method ${method}`));
             } else {
                 try {
-                    this._instanceCallstack.push(instance);
-                    instance.vm.waitForReady(() => {
-                        if (instance.vm.isBusy()) {
-                            logger.error('VM is busy');
-                            cb(new Error('VM is busy'));
+                    instanceMasterContract.vm.waitForReady(() => {
+                        if(instanceMasterContract.vm.isBusy()) {
+                            logger.error('Master VM is busy');
+                            cb(new Error('Master VM is busy'));
                             return;
                         }
 
-                        instance.vm.setState(state);
-                        instance.vm.runContextMethod("updateExternalState");
-                        instance.vm.runContextMethodAsync(`contract.${method}`, async (err, result) => {
-                            if (err) {
-                                logger.error(`Contract "${address}" in method "${method}" falls with error: ${err}`);
-                                this._nextCallings = [];
-                                this._delayedCallLimiter = 0;
-                                cb(new Error(`Contract "${address}" in method "${method}" falls with error: ${err}`));
-                                return;
-                            }
+                        instanceMasterContract.vm.runContextMethodAsync("contract.setNodeIsInOnlines", async (err) => {
+                            this._instanceCallstack.push(instance);
+                            instance.vm.waitForReady(() => {
+                                if (instance.vm.isBusy()) {
+                                    logger.error('VM is busy');
+                                    cb(new Error('VM is busy'));
+                                    return;
+                                }
 
-                            if (this._nextCallings.length === 0) {
-                                cb(null, result);
-                            } else {
-                                let nextCall = this._nextCallings.shift();
-                                await this.callContractMethodDeployWaitPromise(nextCall.contract, nextCall.method, nextCall.state, ...nextCall.args);
-                                cb(null, result);
-                            }
+                                instance.vm.setState(state);
+                                instance.vm.runContextMethod("updateExternalState");
+                                instance.vm.runContextMethodAsync(`contract.${method}`, async (err, result) => {
+                                    if (err) {
+                                        logger.error(`Contract "${address}" in method "${method}" falls with error: ${err}`);
+                                        this._nextCallings = [];
+                                        this._delayedCallLimiter = 0;
+                                        cb(new Error(`Contract "${address}" in method "${method}" falls with error: ${err}`));
+                                        return;
+                                    }
 
-                        }, ...args);
-                    });
+                                    if (this._nextCallings.length === 0) {
+                                        cb(null, result);
+                                    } else {
+                                        let nextCall = this._nextCallings.shift();
+                                        await this.callContractMethodDeployWaitPromise(nextCall.contract, nextCall.method, nextCall.state, ...nextCall.args);
+                                        cb(null, result);
+                                    }
 
+                                }, ...args);
+                            });
+                    })
+                })
                 } catch (err) {
                     logger.error(`Contract "${address}" in method "${method}" falls with error: ${err}`);
                     this._nextCallings = [];
@@ -1278,6 +1291,10 @@ class EcmaContract {
         }
 
         state.rollback = false;
+
+        if (!method) {
+            console.log('address, method, state, ...args', address, method, state, ...args)
+        }
 
         if (method.indexOf('._') !== -1 || method[0] === '_') {
             throw new Error('Calling private contract method in deploy method not allowed');
@@ -1312,38 +1329,40 @@ class EcmaContract {
 
                             instanceMasterContract.vm.setState(state);
                             instanceMasterContract.vm.runContextMethod("updateExternalState");
-                            instanceMasterContract.vm.runContextMethodAsync("contract.calculateBlockFee", (err, fee) => {
-                                if (err) {
-                                    logger.error(`Master contract "${address}" in method "${method}" falls with error: ${err}`);
-                                    this._nextCallings = [];
-                                    this._delayedCallLimiter = 0;
-                                    cb(new Error(`Master contract "${address}" in method "${method}" falls with error: ${err}`));
-                                    return;
-                                }
-
-                                state.block.fee = Number(fee);
-                                
-                                instance.vm.setState(state);
-                                instance.vm.runContextMethod("updateExternalState");
-                                instance.vm.runContextMethodAsync(`contract.${method}`, async (err, result) => {
+                            instanceMasterContract.vm.runContextMethodAsync("contract.setNodeIsInOnlines", (err) => {
+                                instanceMasterContract.vm.runContextMethodAsync("contract.calculateBlockFee", (err, fee) => {
                                     if (err) {
-                                        logger.error(`Contract "${address}" in method "${method}" falls with error: ${err}`);
+                                        logger.error(`Master contract "${address}" in method "${method}" falls with error: ${err}`);
                                         this._nextCallings = [];
                                         this._delayedCallLimiter = 0;
-                                        cb(new Error(`Contract "${address}" in method "${method}" falls with error: ${err}`));
+                                        cb(new Error(`Master contract "${address}" in method "${method}" falls with error: ${err}`));
                                         return;
                                     }
 
-                                    if (this._nextCallings.length === 0) {
-                                        cb(null, result);
-                                    } else {
-                                        let nextCall = this._nextCallings.shift();
-                                        await this.callContractMethodDeployWaitPromise(nextCall.contract, nextCall.method, nextCall.state, ...nextCall.args);
-                                        cb(null, result);
-                                    }
+                                    state.block.fee = Number(fee);
+                                    
+                                    instance.vm.setState(state);
+                                    instance.vm.runContextMethod("updateExternalState");
+                                    instance.vm.runContextMethodAsync(`contract.${method}`, async (err, result) => {
+                                        if (err) {
+                                            logger.error(`Contract "${address}" in method "${method}" falls with error: ${err}`);
+                                            this._nextCallings = [];
+                                            this._delayedCallLimiter = 0;
+                                            cb(new Error(`Contract "${address}" in method "${method}" falls with error: ${err}`));
+                                            return;
+                                        }
 
-                                }, ...args);
-                            }, state);
+                                        if (this._nextCallings.length === 0) {
+                                            cb(null, result);
+                                        } else {
+                                            let nextCall = this._nextCallings.shift();
+                                            await this.callContractMethodDeployWaitPromise(nextCall.contract, nextCall.method, nextCall.state, ...nextCall.args);
+                                            cb(null, result);
+                                        }
+
+                                    }, ...args);
+                                }, state);
+                            }, this.blockchain.getPeersMessageBusAddress());
                         });
                     });
 
@@ -1707,29 +1726,7 @@ class EcmaContract {
     }
 
     _nextCallingsDeploy = [];
-    _nextCallingsDeployClear = true;
     
-    _nextCallingsIndex = 0;
-    _nextCallingsStartTimestamp = 0;
-    _nextCallingsEndTimestamp = 0;
-
-    saveBenchmarkData() {
-        const fileName = 'benchmark.txt';
-        
-        if (!fs.existsSync(fileName)) {
-            fs.writeFileSync(fileName, '', { encoding: 'utf-8' });
-        }
-
-        const data = {
-            index: this._nextCallingsIndex,
-            start: this._nextCallingsStartTimestamp,
-            end: this._nextCallingsEndTimestamp,
-            minutes: (this._nextCallingsEndTimestamp - this._nextCallingsStartTimestamp) / 60 / 1000,
-        };
-
-        fs.appendFileSync(fileName, JSON.stringify(data) + '\n', { encoding: 'utf-8' });
-    }
-
     async nextDeployContractMethod() {
         if (storj.get('deployNow')) {
             return;
@@ -1740,46 +1737,24 @@ class EcmaContract {
                 return setImmediate(() => this.nextDeployContractMethod());
             }
 
-            storj.put('deployCalling', this._nextCallingsDeploy.length);
             storj.put('deployNow', true);
 
             const nextCall = this._nextCallingsDeploy.shift();
-            this._deployContractMethod(nextCall.address, nextCall.method, nextCall.args, nextCall.state, (...attrs) => {
+            this._deployContractMethod(nextCall.address, nextCall.method, nextCall.args, nextCall.state, async (...attrs) => {
                 storj.put('deployNow', false);
-                this._nextCallingsIndex++;
 
-                if (this._nextCallingsIndex % 10000 === 0) {
-                    this._nextCallingsEndTimestamp = new Date().getTime();
-                    this.saveBenchmarkData();
-                    this._nextCallingsStartTimestamp = new Date().getTime();
-                }
-
-                setTimeout(() => this.nextDeployContractMethod(), 100);
+                await this.nextDeployContractMethod();
 
                 nextCall.cb(...attrs);
             }, nextCall.accountName);
         } else {
-            console.timeEnd('Transactions');
-            
-            storj.put('deployCalling', this._nextCallingsDeploy.length);
-
-            this._nextCallingsEndTimestamp = new Date().getTime();
-            this.saveBenchmarkData();
-
-            console.log('DONE');
-            console.log('DONE');
-            console.log('DONE');
-            console.log('DONE');
-            console.log('DONE');
-            console.log('DONE');
-            console.log('DONE');
+            console.timeEnd('Transaction Queue');
         }
     }
 
     deployContractMethod(address, method, args = [], state = {}, cb, accountName = false) {
         if (this._nextCallingsDeploy.length === 0) {
-            console.time('Transactions');
-            this._nextCallingsStartTimestamp = new Date().getTime();
+            console.time('Transaction Queue');
         }
 
         this._nextCallingsDeploy.push({
@@ -1791,7 +1766,6 @@ class EcmaContract {
             accountName
         });
         
-        storj.put('deployCalling', this._nextCallingsDeploy.length);
         this.nextDeployContractMethod();
     }
 
@@ -2248,6 +2222,8 @@ class EcmaContract {
                     callback(new Error('Contract invalid sign in block ' + block.index));
                     return
                 }
+
+                // console.log('blockData', blockData);
 
                 this._handleContractCall(blockData.address, blockData.method, blockData.args, blockData.state, block, testOnly, callback);
                 break;

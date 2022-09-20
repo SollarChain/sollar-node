@@ -133,7 +133,7 @@ class starwaveProtocol {
                 } else {
                     //adding your address to the routes if the route is not completed
                     if (message.route.includes(this.config.recieverAddress)) {
-                        console.log('Dupe routes');
+                        // console.log('Dupe routes');
                         return true;
                     }
 
@@ -166,7 +166,7 @@ class starwaveProtocol {
             if(message.route.length > 0) { //if the route array is empty, it means that this is the first sending of the message and you need to send it without restrictions
                 //save the previous sender (he is recorded last in the array of routes)
                 if (message.route.includes(this.config.recieverAddress)) {
-                    console.log('Dupe routes');
+                    // console.log('Dupe routes');
                     return;
                 }
                 prevSender = that.blockchain.getSocketByBusAddress(message.route[message.route.length - 1]);

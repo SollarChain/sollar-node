@@ -160,56 +160,6 @@
         return wallet.isActive === true && wallet.isClaimed === false && wallet.isOnline === true;
     }
 
-    // _checkWalletIsCanValidate(wallet, isValidated=false) {
-    //     let isAlreadyValidated = false;
-
-    //     if (isValidated) {
-    //         isAlreadyValidated = !this._alreadyValidate.find(_ => _ === wallet);
-    //     } else {
-    //         isAlreadyValidated = !!this._alreadyValidate.find(_ => _ === wallet);
-    //     }
-
-    //     const checkWalletStatus = this._checkWalletStatus(wallet);
-        
-    //     return /*wallet.isValidated === isValidated &&*/ isAlreadyValidated && checkWalletStatus;
-    // }
-
-    // _isAllNodesValidated() {
-    //     for (const address of this._whiteListWallets) {
-    //         const wallet = this._whiteList[address];
-    //         if (this.checkIsNodeCanValidate(address)) {
-    //             return false;
-    //         }
-    //         // if (this._checkWalletIsCanValidate(wallet, false)) {
-    //         //     return false;
-    //         // }
-    //     }
-
-    //     return true;
-    // }
-
-
-    // getNodeInValidatorsList() {
-    //     for (const address of this._whiteListWallets) {
-    //         const wallet = this._whiteList[address];
-    //         return JSON.stringify(wallet);
-    //     }
-    // }
-
-    // getNodeForValidating() {
-    //     for (const address of this._whiteListWallets) {
-    //         const wallet = this._whiteList[address];
-    //         if (this.checkIsNodeCanValidate(address)) {
-    //             return JSON.stringify(address);
-    //         }
-    //         // if (this._checkWalletIsCanValidate(wallet)) {
-    //         //     return JSON.stringify(wallet);
-    //         // }
-    //     }
-
-    //     return false;
-    // }
-
     checkIsNodeInValidators(address=this._getSender()) {
         return !!this._whiteList[address];
     }
@@ -226,16 +176,6 @@
 
         return false;
     }
-
-    // resetNodes() {
-    //     assert.assert(this._isAllNodesValidated(), 'Not all nodes is validated');
-
-    //     for (const address of this._whiteListWallets) {
-    //         const wallet = this._whiteList[address];
-    //         wallet.isValidated = false;
-    //         this._whiteList[address] = wallet;
-    //     }
-    // }
 
     _getBlockEmission() {
         return this._sollarSettings['blockEmission'];
@@ -263,7 +203,11 @@
         return [settings.counts, settings.validated];
     }
 
-    checkIsNodeCanValidate(address = this._getSender()) {
+    checkIsNodeCanValidate(address = this._getSender(), onlineNodes) {
+        if (Array.isArray(onlineNodes) && onlineNodes.length) {
+            this.setNodeIsInOnlines(onlineNodes);
+        }
+
         const wallet = this._whiteList[address];
 
         if (!wallet) {
@@ -332,7 +276,7 @@
         assert.true(this._whiteList[nodeAddress], 'Node not in whitelist');
         
         const checkValidatorsNode = this._checkStateIsNodeCanValidate(nodeAddress);
-        assert.true(checkValidatorsNode, 'You can\'t validate');
+        // assert.true(checkValidatorsNode, 'You can\'t validate');
 
         const wallet = this._whiteList[nodeAddress];
         // console.log('_alreadyValidate old', this._alreadyValidate.length);
@@ -351,12 +295,6 @@
 
         return emission;
     }
-
-    // _getTransferFee(amount) {
-    //     const transferAmount = Number((amount / 100 * 1).toFixed(8));
-    //     assert.assert(transferAmount >= this._sollarSettings['minFee'], 'Invalid minimum fee');
-    //     return transferAmount;
-    // }
 
     getFeeFromBlock(block) {
         assert.true(block, 'Invalid block');
@@ -380,7 +318,6 @@
 
         return String(fee);
     }
-
 
     getFeeFromContractCode(contractLength) {
         assert.true(contractLength, 'Invalid contract code');
@@ -409,6 +346,22 @@
             this._TransferFeeEvent.emit('SOL', sender, wallet.owner, fee + blockEmission, 0, Date.now());
         }
         return String(fee);
+    }
+
+    setNodeIsInOnlines(nodesWallet) {
+        assert.true(Array.isArray(nodesWallet), 'Invalid nodesWallet type');
+
+        if (nodesWallet.length) {
+            for (const address of this._whiteListWallets) {
+                const wallet = this._whiteList[address];
+
+                const isNodeOnline = nodesWallet.includes(address);
+
+                wallet.isOnline = isNodeOnline;
+
+                this._whiteList[address] = wallet;
+            }
+        }
     }
 
     // change methods to new pos

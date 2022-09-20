@@ -1213,103 +1213,6 @@ function Blockchain(config) {
                         } else {
                             storj.put('chainResponseMutex', false);
                         }
-
-                        // if (isValidBlocks) {
-                        //     if (firstBlockReceived.index <= maxBlock || latestBlockReceived.index === maxBlock + 1 || receivedBlocks.length === 1) {
-                        //         console.log('Add block from messages', firstBlockReceived.index <= maxBlock, latestBlockReceived.index === maxBlock + 1, receivedBlocks.length === 1);
-                        //         addBlockToChain(latestBlockReceived, false, () => {
-                        //             storj.put('chainResponseMutex', false);
-                        //         })
-                        //     } else {
-                        //         storj.put('chainResponseMutex', false);
-                        //     }
-                        // } else {
-                        //     storj.put('chainResponseMutex', false);
-                        // }
-
-                        // if (isValidBlocks) {
-                        //     console.log('recieved blocks to', latestBlockReceived.index, maxBlock, '|', receivedBlocks.length);
-                        //     if (receivedBlocks.length === 1) {
-                        //         if (latestBlockReceived.index > maxBlock) {
-                        //             console.log('latestBlockReceived.index === maxBlock + 1', latestBlockReceived.index, maxBlock + 1);
-                        //             if (latestBlockReceived.index === maxBlock + 1) {
-                        //                 if(storj.get('chainResponseMutex')) {
-                        //                     storj.put('chainResponseMutex', false);
-                        //                     return;
-                        //                 }
-
-                        //                 if (storj.get('deployCalling') > 0) {
-                        //                     storj.put('chainResponseMutex', false);
-                        //                     return;
-                        //                 }
-    
-                        //                 getLatestBlock((previousBlock) => {
-                        //                     if (latestBlockReceived.previousHash === previousBlock.hash) {
-                        //                         addBlockToChain(latestBlockReceived, false, () => {
-                        //                             // responseLatestMsg(function (msg) {
-                        //                                 storj.put('chainResponseMutex', false);
-                        //                                 // broadcast(msg);
-                        //                             // })
-                        //                         })
-                        //                     } else {
-                        //                         storj.put('chainResponseMutex', false);
-                        //                     }
-                        //                 })
-                        //             } else {
-                        //                 addBlockToChain(latestBlockReceived, false, () => {
-                        //                     // responseLatestMsg(function (msg) {
-                        //                         storj.put('chainResponseMutex', false);
-                        //                         // broadcast(msg);
-                        //                     // })
-                        //                 })
-                        //             }
-                        //         } else {
-                        //             addBlockToChain(latestBlockReceived, true);
-                        //             // responseLatestMsg(function (msg) {
-                        //                 storj.put('chainResponseMutex', false);
-                        //             //     broadcast(msg);
-                        //             // })
-                        //         }
-                        //     } else if (receivedBlocks[0].index <= maxBlock) {
-                        //         addBlockToChain(latestBlockReceived, true);
-                        //         responseLatestMsg(function (msg) {
-                        //             storj.put('chainResponseMutex', false);
-                        //             broadcast(msg);
-                        //         })
-                        //     } else {
-                        //         storj.put('chainResponseMutex', false);
-                        //     }
-                        // }
-
-                        // if(isValidBlocks && (receivedBlocks[0].index <= maxBlock || receivedBlocks.length === 1)) {
-                        //     console.log('recieved blocks to', receivedBlocks[0].index, maxBlock, '|', receivedBlocks.length);
-                        //     addBlockToChain(latestBlockReceived, false);
-                        //     responseLatestMsg(function (msg) {
-
-                        //     //     clearTimeout(replaceChainTimer);
-                        //     //     // replaceChainTimer = setTimeout(function () {
-                        //     //     //     //If receiving chain, no syncing
-                        //     //     //     if(storj.get('chainResponseMutex')) {
-                        //     //     //         return;
-                        //     //     //     }
-
-                        //     //     //     if (storj.get('deployCalling') > 0) {
-                        //     //     //         return;
-                        //     //     //     }
-
-                        //     //     //     console.log('CHECK HASH isPosAdding', storj.get('isPosAdding'));
-                        //     //     //     if (storj.get('isPosAdding')) {
-                        //     //     //         return;
-                        //     //     //     }
-                                    
-                        //     //     //     // blockHandler.resync();
-                        //     //     // }, config.peerExchangeInterval + 2000); //2000 as additional time
-
-                        //         storj.put('chainResponseMutex', false);
-                        //         broadcast(msg);
-                        //     });
-                        // }
-
                     } else if (receivedBlocks.length === 1 && latestBlockReceived.index === maxBlock + 1) {
                         if (storj.get('deployNow')) {
                             return storj.put('chainResponseMutex', false);
@@ -1324,11 +1227,11 @@ function Blockchain(config) {
                             return storj.put('chainResponseMutex', false);
                         }
                         //console.log('HERE');
-                        let getBlockFrom = latestBlockReceived.index;
+                        let getBlockFrom = latestBlockHeld.index + config.maxBlockSend;
 
                         if(getBlockFrom < 0 || maxBlock == 0) {
                             console.log('maxBlock', maxBlock);
-                            getBlockFrom = 1;//maxBlock;
+                            getBlockFrom = 1;
                             lastKnownBlock = maxBlock;
                         }
 
@@ -1466,17 +1369,17 @@ function Blockchain(config) {
                         clearTimeout(replaceChainTimer);
                         replaceChainTimer = setTimeout(function () {
                             //If receiving chain, no syncing
-                            if(storj.get('chainResponseMutex')) {
-                                return;
-                            }
+                            // if(storj.get('chainResponseMutex')) {
+                            //     return;
+                            // }
 
-                            blockHandler.resync();
+                            blockHandler.resync(cb);
                         }, config.peerExchangeInterval + 2000); //2000 в качестве доп времени
 
                         //All is ok
-                        if(typeof cb !== 'undefined') {
-                            cb();
-                        }
+                        // if(typeof cb !== 'undefined') {
+                        //     cb();
+                        // }
 
                     })();
 
@@ -1746,6 +1649,11 @@ function Blockchain(config) {
                 }
             }
         }).filter((v, i, a) => a.indexOf(v) === i);
+    }
+
+    function getPeersMessageBusAddress() {
+        const peers = getCurrentPeers(true).filter(_ => _?.nodeMetaInfo);
+        return peers.map(_ => _.nodeMetaInfo.messageBusAddress).concat(wallet.getAddress(false));
     }
 
 
@@ -2122,6 +2030,7 @@ function Blockchain(config) {
         broadcastConnectedPeers: broadcastConnectedPeers,
         startBlockchainServers: startBlockchainServers,
         getCurrentPeers: getCurrentPeers,
+        getPeersMessageBusAddress: getPeersMessageBusAddress,
         broadcastLastBlock: broadcastLastBlock,
         peerExchange: peerExchange,
         createMessage: createMessage,

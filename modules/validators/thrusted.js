@@ -24,9 +24,9 @@
  */
 let blockchain = null;
 
-const ThrustedNodesTimeout = 86400 * 1000; //24hours
-const MessageTimeout = 60000;
-const AddMessageTimeout = 10000;
+const ThrustedNodesTimeout = 24 * 60 * 60 * 1000; //24hours
+const MessageTimeout = 1 * 60 * 1000;
+const AddMessageTimeout = 10 * 1000;
 const consensusName = 'Thrusted Nodes';
 
 
